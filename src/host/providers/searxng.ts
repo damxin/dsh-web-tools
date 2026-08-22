@@ -78,7 +78,7 @@ export const SearxngProvider: ProviderAdapter = {
     const url = buildSearxngUrl(instance, query, apiKey, hints);
     let res: Response;
     try {
-      res = await fetchWithProxy(url, { signal });
+      res = await fetchWithProxy(url, { signal }, SEARXNG_META.name);
     } catch (e) {
       throw providerError("network", `SearXNG unreachable at ${instance}: ${String(e)}`);
     }

@@ -30,6 +30,8 @@ interface Props {
   onClose: () => void;
   onToggle: (enabled: boolean) => void;
   onBaseUrl: (url: string) => void;
+  /** Toggle this provider's "bypass proxy" mark (providerProxyDirect). */
+  onProxyDirect: (direct: boolean) => void;
   onTest: () => Promise<void>;
   onRefreshQuota: () => void;
   onConfigChanged: () => Promise<void> | void;
@@ -392,7 +394,7 @@ function ConnectionSettingsDisclosure(props: {
 
 export function ProviderModal(props: Props) {
   adoptWebToolsStyles();
-  const { t, p, quota, testResult, busy, showPreferred, inChain, onClose, onToggle, onBaseUrl, onTest, onRefreshQuota, onConfigChanged } = props;
+  const { t, p, quota, testResult, busy, showPreferred, inChain, onClose, onToggle, onBaseUrl, onProxyDirect, onTest, onRefreshQuota, onConfigChanged } = props;
   const [localError, setLocalError] = useState("");
   const [draftBaseUrl, setDraftBaseUrl] = useState(p.baseUrl ?? "");
   const base = providerStatusOf(p, quota, inChain);
@@ -541,6 +543,18 @@ export function ProviderModal(props: Props) {
             <DeveloperOptions t={t} p={p} onConfigChanged={onConfigChanged} />
           )}
         </SettingsGroup>
+
+        {/* Outbound proxy: mark this provider to bypass every proxy source.
+            Applies to its search/extract AND quota calls; loopback instances
+            (SearXNG on 127.0.0.1) already bypass by rule. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <h4 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: text.secondary }}>{t("proxyLabel")}</h4>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Switch checked={p.proxyDirect === true} onChange={onProxyDirect} label={t("proxyDirectLabel")} />
+            <span style={{ color: text.secondary, fontSize: 13 }}>{t("proxyDirectLabel")}</span>
+            <span style={{ color: text.tertiary, fontSize: 12 }}>{t("proxyDirectHint")}</span>
+          </div>
+        </div>
 
         {localError && <div style={{ color: stateColor.danger, fontSize: 12 }}>{localError}</div>}
       </div>

@@ -101,7 +101,7 @@ export const YouProvider: ProviderAdapter = {
       headers: { "content-type": "application/json", ...youAuthHeader(apiKey) },
       body: JSON.stringify(body),
       signal,
-    });
+    }, YOU_META.name);
     if (!res.ok) throwYouError(res);
     const raw = await res.json();
     // POST /v1/search → { results: { web: [...], news: [...] } }
@@ -179,7 +179,7 @@ export async function pollYouQuota(apiKey: string): Promise<QuotaSnapshot> {
   const res = await fetchWithProxy(YOU_BALANCE_URL, {
     method: "GET",
     headers: youAuthHeader(apiKey),
-  });
+  }, YOU_META.name);
   if (!res.ok) {
     return {
       supported: true,

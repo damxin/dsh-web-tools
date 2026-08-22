@@ -164,7 +164,7 @@ export const ExaProvider: ProviderAdapter = {
       },
       body: JSON.stringify(body),
       signal,
-    });
+    }, EXA_META.name);
     if (!res.ok) await throwExaError(res);
     const raw = await res.json();
     const results = Array.isArray(raw?.results) ? raw.results : [];
@@ -208,7 +208,7 @@ export const ExaProvider: ProviderAdapter = {
       },
       body: JSON.stringify(body),
       signal,
-    });
+    }, EXA_META.name);
     if (!res.ok) await throwExaError(res);
     const data = await res.json();
     // Exa /contents returns per-URL statuses in data.statuses[] (HTTP 200 may still have a URL error).

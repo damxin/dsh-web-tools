@@ -38,6 +38,9 @@ export declare const DEFAULT_SETTINGS: {
     providerOptions: StoredProviderOptions;
     braveQuotaCache: Record<string, QuotaSnapshot>;
     searchRoutingPolicy: ToolSearchRoutingPolicy;
+    proxyUrl: string;
+    providerProxyDirect: Record<string, boolean>;
+    uiLanguage: "auto" | "zh" | "en";
 };
 /** Resolved settings shape (explicit interface — portable in emitted d.ts). */
 export interface WebToolsSettings {
@@ -53,6 +56,15 @@ export interface WebToolsSettings {
     braveQuotaCache: Record<string, QuotaSnapshot>;
     /** Search routing policy (see shared api-types). */
     searchRoutingPolicy: ToolSearchRoutingPolicy;
+    /**
+     * Outbound proxy URL for provider HTTP calls ("" = unset → env/system
+     * detection). Only http:// / https:// URLs are valid.
+     */
+    proxyUrl: string;
+    /** Providers whose calls go direct (true), bypassing every proxy source. */
+    providerProxyDirect: Record<string, boolean>;
+    /** Page UI language: "auto" follows the DSH UI language, zh/en force it. */
+    uiLanguage: "auto" | "zh" | "en";
 }
 /** The schema object for settings registration (official z<T> annotation). */
 export declare const Config: z<WebToolsSettings>;

@@ -13,6 +13,7 @@
 import type { WebToolsContext } from "./context-types.ts";
 import { type PoolEntry } from "./pool.ts";
 import type { QuotaSnapshot } from "./quota.ts";
+import type { ProxySource } from "./fetch-proxy.ts";
 import type { SearchMode, SearchModeView, VersionCheckView } from "../shared/api-types.ts";
 import type { SpecializedSourceRegistry } from "./sources/registry.ts";
 /** Opaque per-key id for the remove-key endpoint (sha1 of the key, 8 hex). */
@@ -40,10 +41,12 @@ export interface RouteDeps {
      * so the card's per-key state matches what search actually uses.
      */
     poolEntries?: (provider: string) => Promise<PoolEntry[]>;
-    /** Proxy support status (configured + whether undici is loadable). */
+    /** Proxy support status (effective proxy + whether undici is loadable). */
     proxyStatus?: () => Promise<{
         configured: boolean;
         degraded: boolean;
+        url?: string;
+        source?: ProxySource;
     }>;
     /** Cached, failure-tolerant GitHub release check. */
     checkVersion?: () => Promise<VersionCheckView>;

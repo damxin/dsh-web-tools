@@ -31,6 +31,8 @@ export interface ProviderView {
   keys?: Array<{ id: string; hint: string; healthy: boolean }>;
   /** Provider-native execution settings (effective values + user overrides). */
   options?: ProviderOptionView;
+  /** This provider's calls go direct, bypassing every proxy source. */
+  proxyDirect?: boolean;
 }
 
 /** Full config snapshot for the card. */
@@ -39,18 +41,27 @@ export interface ConfigView {
   defaultProvider: string;
   providerAttemptTimeoutMs: number;
   fallbackOrder: string[];
+  /**
+   * Operator-configured outbound proxy URL ("" = unset → env/system
+   * detection). Saved trimmed; only http:// / https:// URLs are accepted.
+   */
+  proxyUrl?: string;
   providers: ProviderView[];
   platformEnabled?: Record<string, boolean>;
   /**
-   * Proxy support state: whether a proxy is configured (env var or Windows
-   * system proxy) and whether undici (the proxy engine) is loadable. When a
-   * proxy is needed but undici is missing, outbound calls degrade to direct
-   * fetch — the card should warn the operator.
+   * Proxy support state: which proxy is effective (plugin setting, env var,
+   * or Windows system proxy) and whether undici (the proxy engine) is
+   * loadable. When a proxy is needed but undici is missing, outbound calls
+   * degrade to direct fetch — the card should warn the operator.
    */
   proxy?: {
     configured: boolean;
     /** Proxy desired but undici unavailable → degraded to direct fetch. */
     degraded: boolean;
+    /** The effective proxy URL (userinfo masked); present when configured. */
+    url?: string;
+    /** Where the effective proxy came from. */
+    source?: "config" | "env" | "system";
   };
   /** Search routing policy (ordered/round-robin/random). */
   searchRoutingPolicy?: SearchRoutingPolicy;

@@ -138,7 +138,7 @@ Agent 使用 `小红书:` 或 `X:` 作为平台路由前缀。前缀只负责选
 * **429 Retry-After 临时冷却**：遭遇限流并携带 `Retry-After` 时触发零请求冷却，避免在冷却期内产生无效请求。
 * **搜索路由策略**：`web_search` 支持顺序模式（Ordered）、轮询模式（Round-Robin）和随机模式（Random）；`web_fetch` 始终按可抓取 Provider 的确定性链条执行。
 * **会话级联网搜索 (Search Mode)**：开启后要求 Agent 在回答前至少完成一次 `web_search` 或 `web_fetch` 调用；失败也算已尝试，但 Agent 会被要求说明哪些内容未能验证。
-* **代理支持**：支持 Windows 系统代理、`HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY`，本地回环地址自动绕过代理。
+* **代理支持**：支持插件代理设置（设置 → 网页搜索 → 高级设置，优先于环境变量）、Windows 系统代理、`HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY`，本地回环地址自动绕过代理。还可以给单个 Provider 标记「不走代理」，其请求始终直连。
 
 ---
 

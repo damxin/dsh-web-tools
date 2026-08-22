@@ -12,6 +12,8 @@ interface Props {
     onClose: () => void;
     onToggle: (enabled: boolean) => void;
     onBaseUrl: (url: string) => void;
+    /** Toggle this provider's "bypass proxy" mark (providerProxyDirect). */
+    onProxyDirect: (direct: boolean) => void;
     onTest: () => Promise<void>;
     onRefreshQuota: () => void;
     onConfigChanged: () => Promise<void> | void;

@@ -138,7 +138,7 @@ Agents use `小红书:` or `X:` as a platform-routing prefix. The prefix selects
 * **429 Retry-After Cooldown**: Enforces zero-request cooldown windows when servers return `Retry-After` headers, skipping rate-limited providers immediately.
 * **Configurable Routing Policies**: `web_search` supports Ordered, Round-Robin, and Random starting-provider selection. `web_fetch` always follows the deterministic fetch-capable chain.
 * **Session-Level Search Mode**: Requires at least one completed `web_search` or `web_fetch` call before an answer. A failed call still counts as an attempt, and the agent is instructed to disclose what could not be verified.
-* **Proxy Support**: Supports the Windows system proxy, `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`, with automatic loopback bypass.
+* **Proxy Support**: Supports a configurable plugin proxy setting (Settings → Web Search → Advanced; wins over env vars), the Windows system proxy, `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY`, with automatic loopback bypass. Individual providers can also be marked "Bypass proxy" so their calls always go direct.
 
 ---
 

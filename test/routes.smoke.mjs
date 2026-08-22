@@ -44,6 +44,8 @@ const deps = {
     fallbackOrder: ["exa"],
     providerBaseUrls: { searxng: "http://127.0.0.1:8080" },
     providerEnabled: {},
+    proxyUrl: "http://127.0.0.1:7890",
+    providerProxyDirect: { tavily: true },
   }),
   writeConfig: async () => {},
   readCredential: async (ref) => {
@@ -86,9 +88,12 @@ test("config/get returns providers with real pool size and no fake health", asyn
   const cfg = body.value;
   assert.equal(cfg.defaultProvider, "tavily");
   assert.equal(cfg.providerAttemptTimeoutMs, 10000);
+  assert.equal(cfg.proxyUrl, "http://127.0.0.1:7890");
   const tavily = cfg.providers.find((p) => p.name === "tavily");
   assert.ok(tavily);
   assert.equal(tavily.poolSize, 2);
+  assert.equal(tavily.proxyDirect, true, "direct-marked provider is reported");
+  assert.equal(cfg.providers.find((p) => p.name === "exa").proxyDirect, false, "unmarked provider reports false");
   // pool health/uses are runtime Router state — config/get must NOT expose it
   assert.equal("pool" in tavily, false);
 });
@@ -207,6 +212,62 @@ test("config/save persists BEFORE returning saved:true", async () => {
   const body = JSON.parse(res.body);
   assert.equal(body.ok, true);
   assert.equal(persisted, true, "config/save returned success before persistence finished");
+});
+
+test("config/save accepts a proxyUrl, trimmed; empty string clears it", async () => {
+  let written;
+  const saveDeps = {
+    ...deps,
+    writeConfig: async (patch) => { written = patch; },
+  };
+  const { server: s, getHandler: g } = mockServer();
+  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+  const h = g();
+
+  const set = fakeReqRes("POST", `${API_PREFIX}/config/save`, { proxyUrl: "  http://127.0.0.1:7890/  " });
+  await h(set.req, set.res);
+  assert.equal(JSON.parse(set.res.body).ok, true);
+  assert.equal(written.proxyUrl, "http://127.0.0.1:7890/", "value is saved trimmed");
+
+  const clear = fakeReqRes("POST", `${API_PREFIX}/config/save`, { proxyUrl: "   " });
+  await h(clear.req, clear.res);
+  assert.equal(JSON.parse(clear.res.body).ok, true);
+  assert.equal(written.proxyUrl, "", "blank clears the configured proxy");
+});
+
+test("config/save accepts a per-provider direct-proxy map", async () => {
+  let written;
+  const saveDeps = {
+    ...deps,
+    writeConfig: async (patch) => { written = patch; },
+  };
+  const { server: s, getHandler: g } = mockServer();
+  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+  const h = g();
+  const { req, res } = fakeReqRes("POST", `${API_PREFIX}/config/save`, { providerProxyDirect: { brave: false, tavily: true } });
+  await h(req, res);
+  const body = JSON.parse(res.body);
+  assert.equal(body.ok, true);
+  assert.deepEqual(written.providerProxyDirect, { brave: false, tavily: true });
+});
+
+test("config/save rejects invalid proxy URLs and persists nothing", async () => {
+  for (const bad of ["socks5://127.0.0.1:1080", "not-a-url", "http://"]) {
+    let written = false;
+    const saveDeps = {
+      ...deps,
+      writeConfig: async () => { written = true; },
+    };
+    const { server: s, getHandler: g } = mockServer();
+    registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+    const h = g();
+    const { req, res } = fakeReqRes("POST", `${API_PREFIX}/config/save`, { proxyUrl: bad });
+    await h(req, res);
+    const body = JSON.parse(res.body);
+    assert.equal(res.statusCode, 500, `"${bad}" must be rejected`);
+    assert.equal(body.ok, false);
+    assert.equal(written, false, "invalid proxy URL must never be persisted");
+  }
 });
 
 // ---- security: configuration plane is loopback + same-origin only ----------

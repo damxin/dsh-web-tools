@@ -51,6 +51,17 @@ export const DEFAULT_SETTINGS = {
   // search query. "ordered" = always from the first available; "round-robin"
   // and "random" rotate the start offset (see routing-policy.ts).
   searchRoutingPolicy: "ordered" as ToolSearchRoutingPolicy,
+  // Outbound proxy for provider HTTP calls ("http://host:port"). Empty = not
+  // configured → the standard env vars / Windows system proxy detection in
+  // fetch-proxy.ts apply. Applies to EVERY provider unless marked direct.
+  proxyUrl: "",
+  // Providers marked here (true) NEVER use a proxy — their calls go direct
+  // even when proxyUrl/env/system would tunnel them (e.g. Tavily direct
+  // while Brave goes through the proxy). Absent = follow the global proxy.
+  providerProxyDirect: {} as Record<string, boolean>,
+  // Page UI language: "auto" follows the DSH UI language; "zh"/"en" force the
+  // page to that language regardless of the DSH-wide preference.
+  uiLanguage: "auto" as "auto" | "zh" | "en",
 };
 
 /** Resolved settings shape (explicit interface — portable in emitted d.ts). */
@@ -67,6 +78,15 @@ export interface WebToolsSettings {
   braveQuotaCache: Record<string, QuotaSnapshot>;
   /** Search routing policy (see shared api-types). */
   searchRoutingPolicy: ToolSearchRoutingPolicy;
+  /**
+   * Outbound proxy URL for provider HTTP calls ("" = unset → env/system
+   * detection). Only http:// / https:// URLs are valid.
+   */
+  proxyUrl: string;
+  /** Providers whose calls go direct (true), bypassing every proxy source. */
+  providerProxyDirect: Record<string, boolean>;
+  /** Page UI language: "auto" follows the DSH UI language, zh/en force it. */
+  uiLanguage: "auto" | "zh" | "en";
 }
 
 /** The schema object for settings registration (official z<T> annotation). */
@@ -81,6 +101,9 @@ export const Config: z<WebToolsSettings> = z.object({
   providerOptions: z.dict(z.any()),
   braveQuotaCache: z.dict(z.any()),
   searchRoutingPolicy: z.union([z.const("ordered"), z.const("round-robin"), z.const("random")]),
+  proxyUrl: z.string(),
+  providerProxyDirect: z.dict(z.boolean()),
+  uiLanguage: z.union([z.const("auto"), z.const("zh"), z.const("en")]),
 });
 // Mark volatile for DSH 0.1.7+ SettingsForms and config editor
 (Config as any).meta = { ...(Config as any).meta, volatile: true };

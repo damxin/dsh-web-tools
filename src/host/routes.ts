@@ -15,6 +15,8 @@ import { poolSummary, type PoolEntry } from "./pool.ts";
 import { buildPool, hintOf } from "./pool.ts";
 import { credRefOf, getProvider, PROVIDER_LIST } from "./providers/index.ts";
 import type { QuotaSnapshot } from "./quota.ts";
+import type { ProxySource } from "./fetch-proxy.ts";
+import { normalizeProxyUrl } from "./fetch-proxy.ts";
 import type { ConfigView, ProviderView, SearchMode, SearchModeView, SearchRoutingPolicy, VersionCheckView } from "../shared/api-types.ts";
 import { buildProviderOptionView, sanitizeProviderOptions } from "./provider-options.ts";
 import { createHash } from "node:crypto";
@@ -128,8 +130,8 @@ export interface RouteDeps {
    * so the card's per-key state matches what search actually uses.
    */
   poolEntries?: (provider: string) => Promise<PoolEntry[]>;
-  /** Proxy support status (configured + whether undici is loadable). */
-  proxyStatus?: () => Promise<{ configured: boolean; degraded: boolean }>;
+  /** Proxy support status (effective proxy + whether undici is loadable). */
+  proxyStatus?: () => Promise<{ configured: boolean; degraded: boolean; url?: string; source?: ProxySource }>;
   /** Cached, failure-tolerant GitHub release check. */
   checkVersion?: () => Promise<VersionCheckView>;
   /** Search-Mode runtime access (see search-mode-runtime.ts). */
@@ -241,6 +243,7 @@ async function handleConfigGet(deps: RouteDeps): Promise<ConfigView> {
   const baseUrls = (cfg.providerBaseUrls as Record<string, string>) ?? {};
   const providerOpts = (cfg.providerOptions as Record<string, Record<string, unknown>>) ?? {};
   const platformEnabled = (cfg.platformEnabled as Record<string, boolean>) ?? { xiaohongshu: true, x: true };
+  const proxyDirectMap = (cfg.providerProxyDirect as Record<string, boolean>) ?? {};
 
   const credentialsSnapshots = await Promise.all(
     PROVIDER_LIST.map(async (meta) => {
@@ -267,6 +270,7 @@ async function handleConfigGet(deps: RouteDeps): Promise<ConfigView> {
       poolSize: pool.length,
       keys: pool.map((e) => ({ id: keyIdOf(e.key), hint: hintOf(e.key), healthy: e.healthy })),
       options: buildProviderOptionView(meta.name, providerOpts[meta.name]),
+      proxyDirect: proxyDirectMap[meta.name] === true,
     });
   }
 
@@ -275,6 +279,7 @@ async function handleConfigGet(deps: RouteDeps): Promise<ConfigView> {
     defaultProvider,
     providerAttemptTimeoutMs: (cfg.providerAttemptTimeoutMs as number) ?? 10000,
     fallbackOrder: (cfg.fallbackOrder as string[]) ?? [],
+    proxyUrl: (cfg.proxyUrl as string) ?? "",
     proxy: deps.proxyStatus ? await deps.proxyStatus() : undefined,
     searchRoutingPolicy: (cfg.searchRoutingPolicy as SearchRoutingPolicy) ?? "ordered",
     platformEnabled,
@@ -296,6 +301,17 @@ async function handleConfigSave(deps: RouteDeps, payload: unknown) {
     deps.sourceRegistry.setPlatformEnabled(p.platformEnabled as Record<string, boolean>);
   }
   if (p.providerOptions && typeof p.providerOptions === "object") patch.providerOptions = p.providerOptions;
+  if (p.providerProxyDirect && typeof p.providerProxyDirect === "object") patch.providerProxyDirect = p.providerProxyDirect;
+  if (typeof p.proxyUrl === "string") {
+    const trimmed = p.proxyUrl.trim();
+    // Fail loud BEFORE persisting: an invalid proxy URL must never be saved —
+    // fetch-proxy only warns+skips at resolve time, so this is the gate.
+    if (trimmed !== "" && normalizeProxyUrl(trimmed) === undefined) {
+      throw new Error(`invalid proxy URL "${trimmed}" — expected http://host:port or https://host:port`);
+    }
+    patch.proxyUrl = trimmed;
+  }
+  if (p.uiLanguage === "auto" || p.uiLanguage === "zh" || p.uiLanguage === "en") patch.uiLanguage = p.uiLanguage;
   await deps.writeConfig(patch); // persist BEFORE reporting success
   return { saved: true };
 }

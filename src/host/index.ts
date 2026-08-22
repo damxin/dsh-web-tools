@@ -24,7 +24,7 @@ import type { ProviderError } from "./providers/types.ts";
 import { isKeylessSelfHosted } from "./providers/types.ts";
 import type { QuotaSnapshot } from "./quota.ts";
 import { mergePoolQuota } from "./quota.ts";
-import { fetchWithProxy, proxyStatus } from "./fetch-proxy.ts";
+import { fetchWithProxy, proxyStatus, setProxyConfigSource } from "./fetch-proxy.ts";
 import { installSearchModeRuntime, SearchModeRuntime, createSearchModeMessages } from "./search-mode-runtime.ts";
 import { createUserMessage } from "@deepseek-ai/dsh-llm";
 import { createProviderHealthStore } from "./provider-health.ts";
@@ -191,6 +191,15 @@ export function apply(ctx: WebToolsContext, config?: unknown) {
   const stats = new Stats();
   const configHandle = installConfig(ctx, config);
   const readConfig = () => configHandle.read();
+
+  // Explicit `proxyUrl` setting beats env/system detection, and providers
+  // marked in `providerProxyDirect` never tunnel. Wired as a live getter
+  // (readConfig re-reads settings) so proxy edits apply to provider calls
+  // immediately, without a restart.
+  setProxyConfigSource(() => {
+    const cfg = readConfig();
+    return { proxyUrl: cfg.proxyUrl, directProviders: cfg.providerProxyDirect };
+  });
 
   // ---- ctx.web search + fetch providers ----------------------------------
   const resolveRuntimeConfig = () => {

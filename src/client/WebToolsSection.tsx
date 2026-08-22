@@ -287,6 +287,13 @@ function accentText(): string {
   return "var(--dsw-alias-brand-primary)";
 }
 
+/** Quiet label for where the effective proxy came from (config/env/system). */
+function proxySourceLabel(t: TFunc, source: string | undefined): string {
+  const key = source === "config" || source === "env" || source === "system" ? `proxySource${source[0].toUpperCase()}${source.slice(1)}` : undefined;
+  const value = key ? t(key) : undefined;
+  return value !== undefined && value !== key ? value : (source ?? "");
+}
+
 /** Test Search block: one input + real run + human-readable timeline. */
 function TestSearchBlock(props: { t: TFunc; config: ConfigView; onError: (msg: string) => void }) {
   const { t, config, onError } = props;
@@ -430,6 +437,13 @@ export function WebToolsSection(props: SectionProps) {
   const dragProvider = useRef<string | null>(null);
   const [overProvider, setOverProvider] = useState<string | null>(null);
   const readSeq = useRef(createReadSequencer());
+  // Proxy input draft: committed on blur/Enter, re-synced from the persisted
+  // config after every save/load so the field shows server truth.
+  const [proxyDraft, setProxyDraft] = useState("");
+  useEffect(() => {
+    setProxyDraft(config?.proxyUrl ?? "");
+  }, [config]);
+  const loadToken = useRef(0);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -585,6 +599,10 @@ export function WebToolsSection(props: SectionProps) {
     const platformEnabled = { ...current, [name]: enabled };
     void save({ platformEnabled });
   };
+  const toggleProxyDirect = (name: string, direct: boolean) => {
+    const providerProxyDirect = Object.fromEntries(config.providers.map((p) => [p.name, p.name === name ? direct : p.proxyDirect === true]));
+    void save({ providerProxyDirect });
+  };
   const setBaseUrl = (name: string, baseUrl: string) => {
     const providerBaseUrls: Record<string, string> = { ...(config.providers.reduce((a, p) => ({ ...a, [p.name]: p.baseUrl ?? "" }), {})) };
     providerBaseUrls[name] = baseUrl;
@@ -603,6 +621,7 @@ export function WebToolsSection(props: SectionProps) {
       void save({ providerAttemptTimeoutMs: ms });
     }
   };
+  const setProxyUrl = (v: string) => void save({ proxyUrl: v });
 
   // One ordered list: [defaultProvider, ...fallbackOrder] — Host schema unchanged.
   const orderedProviders = [
@@ -1044,6 +1063,41 @@ export function WebToolsSection(props: SectionProps) {
               </span>
               <span style={{ fontSize: 12, color: text.tertiary }}>{t("clientBundleHint")}</span>
             </div>
+
+            {/* Outbound proxy: explicit setting wins; empty = env/system detection.
+                Commits on blur/Enter — an invalid URL is rejected by the Host and
+                surfaces through the page-level error banner. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ color: text.secondary }}>{t("proxyLabel")}</label>
+              <input
+                value={proxyDraft}
+                onChange={(e) => setProxyDraft(e.target.value)}
+                onBlur={() => {
+                  const next = proxyDraft.trim();
+                  if (next !== (config.proxyUrl ?? "")) setProxyUrl(next);
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                placeholder={t("proxyPlaceholder")}
+                spellCheck={false}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  border: `1px solid ${surface.border}`,
+                  background: surface.layer2,
+                  color: text.primary,
+                  fontFamily: "inherit",
+                  fontSize: 13,
+                }}
+              />
+              {config.proxy?.configured === true && config.proxy.url && (
+                <span style={{ color: text.tertiary, fontSize: 12 }}>
+                  {t("proxyActive", { url: config.proxy.url, s: proxySourceLabel(t, config.proxy.source) })}
+                </span>
+              )}
+              <span style={{ color: text.tertiary, fontSize: 12 }}>{t("proxyPerProviderHint")}</span>
+            </div>
           </div>
         )}
       </section>
@@ -1061,6 +1115,7 @@ export function WebToolsSection(props: SectionProps) {
           onClose={() => { setDetailFor(null); setProviderTestResults((prev) => { const next = { ...prev }; delete next[detailProvider.name]; return next; }); }}
           onToggle={(enabled) => toggleProvider(detailProvider.name, enabled)}
           onBaseUrl={(url) => setBaseUrl(detailProvider.name, url)}
+          onProxyDirect={(direct) => toggleProxyDirect(detailProvider.name, direct)}
           onTest={() => testProvider(detailProvider.name)}
           onRefreshQuota={() => void loadQuotas(true)}
           onConfigChanged={async () => {

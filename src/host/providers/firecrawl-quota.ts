@@ -6,6 +6,7 @@
 import type { QuotaSnapshot } from "../quota.ts";
 import { providerError } from "./types.ts";
 import { fetchWithProxy } from "../fetch-proxy.ts";
+import { FIRECRAWL_META } from "./firecrawl.ts";
 
 const FIRECRAWL_CREDIT_USAGE_URL = "https://api.firecrawl.dev/v2/team/credit-usage";
 
@@ -14,7 +15,7 @@ export async function firecrawlQuota(apiKey: string, signal?: AbortSignal): Prom
   const res = await fetchWithProxy(FIRECRAWL_CREDIT_USAGE_URL, {
     headers: { authorization: `Bearer ${apiKey}` },
     signal,
-  });
+  }, FIRECRAWL_META.name);
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) throw providerError("auth", `Firecrawl credit-usage auth failed (HTTP ${res.status})`, res.status);
     if (res.status === 429) throw providerError("rate-limit", "Firecrawl rate limit exceeded (HTTP 429)", res.status);
