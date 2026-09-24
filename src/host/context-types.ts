@@ -50,26 +50,16 @@ export interface WebToolsWebRuntime {
   trustedHosts: readonly string[];
 }
 
-/** The settings service face (mirror of dsh-settings SettingsProvider). */
+/** The settings service face (mirror of dsh-settings SettingsForms, dsh 0.1.7). */
 export interface WebToolsSettingsService {
-  register<T>(
-    ns: string,
-    schema: unknown,
-    options?: { base?: Partial<T>; applies?: "live" | "restart" },
-  ): {
-    get(): T;
-    watch(callback: (next: T, prev: T) => void | Promise<void>): () => void;
-    update(patch: object): Promise<void>;
-    replace(section: object): Promise<void>;
-  };
   describe(options?: { redactSecrets?: boolean }): Array<{
     ns: string;
     value?: unknown;
     base?: unknown;
     user?: unknown;
-    applies: "live" | "restart";
     revision: number;
   }>;
+  /** Merge editable fields into an entry's config (volatile paths only). */
   update(ns: string, patch: object, expectedRevision?: number): Promise<void>;
 }
 
@@ -122,6 +112,8 @@ export interface WebToolsContext {
   settings: WebToolsSettingsService;
   credentials: WebToolsCredentialsService;
   web: WebToolsWebSeam;
+  /** Cordis fiber carrying the loader entry (entry id = settings namespace). */
+  fiber?: { entry?: { options?: { id?: string } } };
   /** DSH-vendored cordis lifecycle helper. */
   effect(fn: () => void | (() => void), label?: string): void;
   /** Cordis dependency injection (callback gets the scoped context). */

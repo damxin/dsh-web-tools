@@ -1,14 +1,17 @@
 /**
- * dsh-web-tools — Host configuration: settings namespace + schema.
+ * dsh-web-tools — Host configuration: plugin Config schema + read/write handle.
  *
- * The config (non-secret knobs) lives in a `dsh-web-tools` settings namespace
- * registered through the settings service, so it persists with the deployment's
- * settings document. API keys are NOT here — they live in the credentials
- * domain (`WEB_TOOLS_*` refs).
+ * dsh 0.1.7 replaced the old `settings.register()` namespace API with a
+ * declarative model: the plugin exports a schemastery `Config` schema, the
+ * loader validates it, fills the schema-declared defaults and hands the
+ * resolved config to `apply(ctx, config)`. Fields declared `.volatile()` update
+ * live (no plugin remount) and are the ONLY paths `settings.update` accepts —
+ * which is how the settings card persists edits. API keys are NOT here — they
+ * live in the credentials domain (`WEB_TOOLS_*` refs).
  * @module
  */
 import z from "@deepseek-ai/schemastery";
-import type { WebToolsContext } from "./context-types.ts";
+import type { WebToolsContext, WebToolsSettingsService } from "./context-types.ts";
 import type { QuotaSnapshot } from "./quota.ts";
 import type { StoredProviderOptions } from "../shared/provider-options.ts";
 import type { SearchRoutingPolicy } from "../shared/api-types.ts";
@@ -16,7 +19,7 @@ import type { SearchRoutingPolicy } from "../shared/api-types.ts";
 /** Persistent search routing policy id (shared with the client card). */
 export type ToolSearchRoutingPolicy = SearchRoutingPolicy;
 
-/** Settings namespace for this plugin. */
+/** Settings namespace for this plugin (= the cordis.patch.yml insert row id). */
 export const SETTINGS_NS = "dsh-web-tools";
 
 /** Default provider when nothing is configured. Changed from tavily to exa
@@ -26,10 +29,9 @@ export const SETTINGS_NS = "dsh-web-tools";
 export const DEFAULT_PROVIDER = "exa";
 
 /**
- * Explicit defaults. The resolved settings type is `WebToolsSettings` (below);
- * `Config` is the schemastery schema annotated the official way
- * (`z<WebToolsSettings>`) so the emitted d.ts references only `schemastery`,
- * never the dsh-private cosmokit copy.
+ * Explicit defaults — the single source of truth mirrored onto the schema
+ * fields below (`.default(...)`); the loader folds them into the resolved
+ * config, and read() falls back to them when no resolved config is available.
  */
 export const DEFAULT_SETTINGS = {
   enabled: true,
@@ -64,7 +66,7 @@ export const DEFAULT_SETTINGS = {
   uiLanguage: "auto" as "auto" | "zh" | "en",
 };
 
-/** Resolved settings shape (explicit interface — portable in emitted d.ts). */
+/** Plain resolved-settings shape the Host code consumes (volatile refs unwrapped). */
 export interface WebToolsSettings {
   enabled: boolean;
   defaultProvider: string;
@@ -89,41 +91,30 @@ export interface WebToolsSettings {
   uiLanguage: "auto" | "zh" | "en";
 }
 
-/** The schema object for settings registration (official z<T> annotation). */
-export const Config: z<WebToolsSettings> = z.object({
-  enabled: z.boolean(),
-  defaultProvider: z.string(),
-  providerAttemptTimeoutMs: z.number().step(1).min(1000).max(60000),
-  fallbackOrder: z.array(z.string()),
-  providerBaseUrls: z.dict(z.string()),
-  providerEnabled: z.dict(z.boolean()),
-  platformEnabled: z.dict(z.boolean()),
-  providerOptions: z.dict(z.any()),
-  braveQuotaCache: z.dict(z.any()),
-  searchRoutingPolicy: z.union([z.const("ordered"), z.const("round-robin"), z.const("random")]),
-  proxyUrl: z.string(),
-  providerProxyDirect: z.dict(z.boolean()),
-  uiLanguage: z.union([z.const("auto"), z.const("zh"), z.const("en")]),
+/**
+ * The plugin Config schema (cordis convention: the loader picks up the
+ * `Config` export, validates the row's config and fills these defaults).
+ * EVERY field is declared volatile: rc.1 `settings.update` refuses
+ * non-volatile paths, and the settings card must be able to save every knob
+ * here live without remounting the plugin. At runtime the resolved values of
+ * volatile fields are live refs — Host code reads them through
+ * `installConfig().read()`, which unwraps them per call.
+ */
+export const Config = z.object({
+  enabled: z.boolean().default(DEFAULT_SETTINGS.enabled).volatile(),
+  defaultProvider: z.string().default(DEFAULT_SETTINGS.defaultProvider).volatile(),
+  providerAttemptTimeoutMs: z.number().step(1).min(1000).max(60000).default(DEFAULT_SETTINGS.providerAttemptTimeoutMs).volatile(),
+  fallbackOrder: z.array(z.string()).default(DEFAULT_SETTINGS.fallbackOrder).volatile(),
+  providerBaseUrls: z.dict(z.string()).default(DEFAULT_SETTINGS.providerBaseUrls).volatile(),
+  providerEnabled: z.dict(z.boolean()).default(DEFAULT_SETTINGS.providerEnabled).volatile(),
+  platformEnabled: z.dict(z.boolean()).default(DEFAULT_SETTINGS.platformEnabled).volatile(),
+  providerOptions: z.dict(z.any()).default(DEFAULT_SETTINGS.providerOptions).volatile(),
+  braveQuotaCache: z.dict(z.any()).default(DEFAULT_SETTINGS.braveQuotaCache).volatile(),
+  searchRoutingPolicy: z.union([z.const("ordered"), z.const("round-robin"), z.const("random")]).default(DEFAULT_SETTINGS.searchRoutingPolicy).volatile(),
+  proxyUrl: z.string().default(DEFAULT_SETTINGS.proxyUrl).volatile(),
+  providerProxyDirect: z.dict(z.boolean()).default(DEFAULT_SETTINGS.providerProxyDirect).volatile(),
+  uiLanguage: z.union([z.const("auto"), z.const("zh"), z.const("en")]).default(DEFAULT_SETTINGS.uiLanguage).volatile(),
 });
-// Mark volatile for DSH 0.1.7+ SettingsForms and config editor
-(Config as any).meta = { ...(Config as any).meta, volatile: true };
-
-function unwrapConfig(val: unknown): unknown {
-  if (val && typeof (val as any).get === "function") {
-    return unwrapConfig((val as any).get());
-  }
-  if (Array.isArray(val)) {
-    return val.map(unwrapConfig);
-  }
-  if (val !== null && typeof val === "object") {
-    const res: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(val)) {
-      res[k] = unwrapConfig(v);
-    }
-    return res;
-  }
-  return val;
-}
 
 /** A settings-scope handle: current value + write path. */
 export interface ConfigHandle {
@@ -132,74 +123,73 @@ export interface ConfigHandle {
   /** Write a partial patch into the namespace; resolves when persisted. */
   write: (patch: Partial<WebToolsSettings>) => Promise<void>;
   /**
-   * Called once the settings namespace is registered (ctx.inject callback).
-   * Use it for anything that must read persisted settings at boot — the
-   * synchronous apply() body runs BEFORE the inject callback, so reading
-   * config there would only see the defaults.
+   * Called once the settings service is reachable (ctx.inject callback). The
+   * resolved config passed to apply() already carries persisted values, but
+   * boot work that must not race service startup still waits for this.
    */
   onMounted: (cb: () => void) => void;
 }
 
-/**
- * Register the settings namespace; returns a handle for reads (live) and
- * Host-side writes. The browser card writes through the fenced routes, never
- * through settings/mutate (that proxy's whitelist excludes third-party
- * namespaces).
- */
-export function installConfig(ctx: WebToolsContext, initialConfig?: unknown): ConfigHandle {
-  const unwrapped = (unwrapConfig(initialConfig) as Partial<WebToolsSettings>) ?? {};
-  const configured: WebToolsSettings = {
-    ...DEFAULT_SETTINGS,
-    ...unwrapped,
-  };
+/** A live volatile ref the loader produces for `.volatile()` schema fields. */
+interface VolatileRef {
+  get: () => unknown;
+}
 
-  let current = () => configured;
-  let scope: { update: (patch: object) => Promise<void>; get?: () => unknown } | undefined;
-  let service: any;
-  let mounted = false;
+function isVolatileRef(value: unknown): value is VolatileRef {
+  return typeof value === "object" && value !== null && typeof (value as VolatileRef).get === "function";
+}
+
+/** Deep-unwrap volatile refs into plain JSON-safe values (fresh objects). */
+function plainValue(value: unknown): unknown {
+  let current = value;
+  while (isVolatileRef(current)) current = current.get();
+  if (Array.isArray(current)) return current.map(plainValue);
+  if (current !== null && typeof current === "object") {
+    return Object.fromEntries(
+      Object.entries(current as Record<string, unknown>).map(([key, child]) => [key, plainValue(child)]),
+    );
+  }
+  return current;
+}
+
+/** Snapshot the resolved config into the plain WebToolsSettings shape. */
+function snapshotSettings(resolved: unknown): WebToolsSettings {
+  const source = resolved !== null && typeof resolved === "object" ? (resolved as Record<string, unknown>) : undefined;
+  const out: Record<string, unknown> = {};
+  for (const [key, fallback] of Object.entries(DEFAULT_SETTINGS)) {
+    const value = source === undefined ? undefined : source[key];
+    out[key] = value === undefined ? plainValue(fallback) : plainValue(value);
+  }
+  return out as unknown as WebToolsSettings;
+}
+
+/**
+ * Build the config handle. `resolved` is the loader-resolved plugin config
+ * handed to `apply(ctx, config)` — volatile fields arrive as live refs, so
+ * read() reflects settings edits immediately. Writes go through the settings
+ * service (`SettingsForms.update`), which persists into the profile patch and
+ * reconciles the live refs; it only accepts volatile paths, which every
+ * schema field above declares.
+ */
+export function installConfig(ctx: WebToolsContext, resolved?: unknown): ConfigHandle {
+  // The settings namespace is the loader entry id authored in cordis.patch.yml.
+  const ns = ctx.fiber?.entry?.options?.id ?? SETTINGS_NS;
+  let service: WebToolsSettingsService | undefined;
   const mountedCbs: Array<() => void> = [];
 
-  ctx.inject(["settings"], (sctx: any) => {
+  ctx.inject(["settings"], (sctx) => {
     service = sctx.settings;
-    if (typeof service?.register === "function") {
-      // DSH pre-0.1.7: Settings service had register()
-      const registered = service.register(SETTINGS_NS, Config, {
-        base: configured,
-      });
-      scope = registered;
-      current = () => registered.get() as WebToolsSettings;
-    } else {
-      // DSH 0.1.7+: SettingsForms has no register(); initial config came from loader.
-      // Register presentation policy to prevent an empty generic page from auto-generating.
-      if (typeof service?.configure === "function") {
-        try {
-          ctx.effect?.(() => service.configure({ auto: false }, (ctx as any).fiber));
-        } catch {}
-      }
-    }
-    mounted = true;
+    // Persisted values are already folded into `resolved` by the loader; run
+    // deferred boot work now that the settings service is definitely up.
     for (const cb of mountedCbs.splice(0)) cb();
   });
 
   return {
-    read: () => current(),
+    read: () => snapshotSettings(resolved),
     write: async (patch) => {
-      if (!scope && !service) {
-        throw new Error("dsh-web-tools settings namespace is not mounted");
-      }
-      Object.assign(configured, patch);
-      if (scope) {
-        await scope.update(patch);
-      } else if (typeof service?.update === "function") {
-        await service.update(SETTINGS_NS, patch);
-      }
+      if (!service) throw new Error(`dsh-web-tools settings namespace "${ns}" is not mounted`);
+      await service.update(ns, patch as object);
     },
-    onMounted: (cb) => {
-      if (mounted) {
-        cb();
-      } else {
-        mountedCbs.push(cb);
-      }
-    },
+    onMounted: (cb) => mountedCbs.push(cb),
   };
 }
