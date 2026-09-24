@@ -7,7 +7,7 @@
 import { text, surface, state as stateColor } from "../theme.ts";
 import { type QuotaView } from "../api.ts";
 import { quotaFraction, quotaTier, type TFunc } from "../logic.ts";
-import { IconRefreshOutline16, IconChevronRightOutline14 } from "@deepseek-ai/dsh-client-ui-primitives";
+import { IconRefreshOutlineRegular, IconChevronRightOutlineRegular } from "@deepseek-ai/dsh-client-ui-primitives";
 import { useState } from "react";
 import { dashboardOf, ExternalLinkIcon } from "../provider-ui-meta.tsx";
 import { adoptWebToolsStyles } from "./styles.ts";
@@ -82,7 +82,7 @@ function RefreshButton(props: { refreshing: boolean; onRefresh: () => void; titl
       }}
     >
       <span style={{ display: "inline-flex", transform: refreshing ? "rotate(180deg)" : "none", transition: "transform .5s ease" }}>
-        <IconRefreshOutline16 size={13} />
+        <IconRefreshOutlineRegular size={13} />
       </span>
     </button>
   );
@@ -194,7 +194,7 @@ export function QuotaCard(props: {
               <span style={{ fontSize: 13, color: text.secondary }}>{t(dash.labelKey)}</span>
             </div>
             <div className="dswt-row-chevron">
-              <IconChevronRightOutline14 size={14} />
+              <IconChevronRightOutlineRegular size={14} />
             </div>
           </a>
         )}
@@ -221,7 +221,7 @@ export function QuotaCard(props: {
               <span style={{ fontSize: 13, color: text.secondary }}>{t(dash.labelKey)}</span>
             </div>
             <div className="dswt-row-chevron">
-              <IconChevronRightOutline14 size={14} />
+              <IconChevronRightOutlineRegular size={14} />
             </div>
           </a>
         )}

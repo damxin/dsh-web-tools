@@ -8,7 +8,7 @@
  * @module
  */
 import { adoptWebToolsStyles } from "./styles.ts";
-import { IconChevronRightOutline14 } from "@deepseek-ai/dsh-client-ui-primitives";
+import { IconChevronRightOutlineRegular } from "@deepseek-ai/dsh-client-ui-primitives";
 
 export function SettingsGroup(props: {
   title?: React.ReactNode;
@@ -78,7 +78,7 @@ export function SettingsRow(props: {
       )}
       {chevron && (
         <div className="dswt-row-chevron">
-          <IconChevronRightOutline14 size={14} />
+          <IconChevronRightOutlineRegular size={14} />
         </div>
       )}
     </>

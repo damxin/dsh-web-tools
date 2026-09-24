@@ -16,9 +16,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
-  IconSearchOutline16,
-  IconEditOutline16,
-  IconSettingsOutline16,
+  IconSearchOutlineRegular,
+  IconEditOutlineRegular,
+  IconSettingsOutlineRegular,
   Input,
   StateDot,
 } from "@deepseek-ai/dsh-client-ui-primitives";
@@ -325,7 +325,7 @@ function TestSearchBlock(props: { t: TFunc; config: ConfigView; onError: (msg: s
         <div style={{ flex: 1, minWidth: 0 }}>
           <Input
             value={query}
-            icon={<IconSearchOutline16 size={14} />}
+            icon={<IconSearchOutlineRegular size={14} />}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("searchPlaceholder")}
             onKeyDown={(e) => { if (e.key === "Enter") void run(); }}
@@ -780,7 +780,7 @@ export function WebToolsSection(props: SectionProps) {
               </span>
             }
             trailing={
-              <Button size="sm" variant={editingOrder ? "primary" : "outline"} icon={!editingOrder ? <IconEditOutline16 size={13} /> : undefined} onClick={() => setEditingOrder(!editingOrder)}>
+              <Button size="sm" variant={editingOrder ? "primary" : "outline"} icon={!editingOrder ? <IconEditOutlineRegular size={13} /> : undefined} onClick={() => setEditingOrder(!editingOrder)}>
                 {editingOrder ? t("done") : t("editOrder")}
               </Button>
             }
@@ -1000,7 +1000,7 @@ export function WebToolsSection(props: SectionProps) {
           <SettingsRow
             icon={
               <div style={{ display: "inline-flex", alignItems: "center", color: text.secondary }}>
-                <IconSettingsOutline16 size={16} />
+                <IconSettingsOutlineRegular size={16} />
               </div>
             }
             title={t("diagnosticsAndMore")}

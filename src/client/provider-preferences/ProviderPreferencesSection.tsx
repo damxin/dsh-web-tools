@@ -8,7 +8,7 @@
  * @module
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Button, IconChevronRightOutline14, IconChevronDownOutline14, Menu, type MenuItem } from "@deepseek-ai/dsh-client-ui-primitives";
+import { Button, IconChevronRightOutlineRegular, IconChevronDownOutlineRegular, Menu, type MenuItem } from "@deepseek-ai/dsh-client-ui-primitives";
 import { api } from "../api.ts";
 import { text, surface, state as stateColor } from "../theme.ts";
 import { Switch } from "../WebToolsSection.tsx";
@@ -94,7 +94,7 @@ function DropdownSelect(props: {
           >
             <span>{valueLabel}</span>
             <span style={{ display: "inline-flex", color: text.tertiary }}>
-              <IconChevronDownOutline14 size={14} />
+              <IconChevronDownOutlineRegular size={14} />
             </span>
           </button>
         }
@@ -761,7 +761,7 @@ function AdvancedDelay(props: { t: TFunc; children: ReactNode }) {
         className="dswt-advanced-btn"
       >
         <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .15s ease", display: "inline-flex" }}>
-          <IconChevronRightOutline14 size={14} />
+          <IconChevronRightOutlineRegular size={14} />
         </span>
         {props.t("advancedParamsTitle")}
       </button>
