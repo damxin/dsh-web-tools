@@ -57,6 +57,35 @@ export interface JinaProviderOptions {
      */
     fetchReaderLmV2?: boolean;
 }
+/**
+ * Zhipu AI (智谱) web search options — native params of the standalone
+ * `POST /api/paas/v4/web_search` API (search-only; no native extraction).
+ * Reference: https://docs.bigmodel.cn/api-reference/工具-api/网络搜索
+ */
+export interface ZhipuProviderOptions {
+    /** Search engine backend. Default `search_std`. */
+    searchEngine?: "search_std" | "search_pro" | "search_pro_sogou" | "search_pro_quark";
+    /** Run intent recognition before executing the search. Default false. */
+    searchIntent?: boolean;
+    /**
+     * Result count 1–50 (default 10). `search_pro_sogou` only accepts
+     * 10/20/30/40/50 — the adapter snaps non-multiples of 10 up.
+     */
+    count?: number;
+    /** Publish-time window filter. Default `noLimit`. */
+    recencyFilter?: "noLimit" | "oneDay" | "oneWeek" | "oneMonth" | "oneYear";
+    /**
+     * Domain whitelist (comma separated). Query-level `site:` hints win over
+     * this operator default whenever present.
+     */
+    domainFilter?: string;
+    /** Returned snippet length: `medium` (default) or `high`. */
+    contentSize?: "medium" | "high";
+    /** Request trace id (6–64 chars); omitted when unset or too short. */
+    requestId?: string;
+    /** End-user id (6–128 chars); omitted when unset or too short. */
+    userId?: string;
+}
 export interface ProviderOptionsMap {
     exa: ExaProviderOptions;
     tavily: TavilyProviderOptions;
@@ -65,6 +94,7 @@ export interface ProviderOptionsMap {
     firecrawl: FirecrawlProviderOptions;
     parallel: ParallelProviderOptions;
     jina: JinaProviderOptions;
+    zhipu: ZhipuProviderOptions;
 }
 export type KnownProviderWithOptions = keyof ProviderOptionsMap;
 export type StoredProviderOptions = Partial<{

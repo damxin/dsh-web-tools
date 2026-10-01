@@ -8,7 +8,7 @@
 
 让 DeepSeek Harness 拥有直连全网与社媒平台的搜索与抓取能力。
 
-**8 大 Web Provider 原生能力适配 · SearchHints 语义编译 · 多源自动容灾 · 小红书 / Twitter X 平台检索**
+**9 大 Web Provider 原生能力适配 · SearchHints 语义编译 · 多源自动容灾 · 小红书 / Twitter X 平台检索**
 
 <p align="center">
   <a href="https://github.com/A3Boy/dsh-web-tools/stargazers">
@@ -31,7 +31,7 @@
 
 当联网能力只依赖一个 Web Provider 时，额度耗尽、限流或服务异常都可能直接中断检索；而简单接入多个搜索 API，往往又只能使用它们共同支持的基础能力，没有真正发挥不同搜索源各自擅长的搜索模式、分类、时效、域名策略和正文提取能力。
 
-dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、SearXNG，以及小红书、Twitter / X 接入 DSH 标准 `web_search` / `web_fetch`。
+dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、SearXNG，以及小红书、Twitter / X 接入 DSH 标准 `web_search` / `web_fetch`。
 
 在统一 DSH 工具接口的同时，dsh-web-tools 通过 SearchHints 归一化查询意图，再针对不同 Provider 分别编译为其支持的原生参数，尽可能使用各家的分类、时效、域名、地区、深度搜索与正文提取能力；同时通过多 API Key、Provider Fallback 和平台专用浏览器会话，提高整个联网链路的可用性。
 
@@ -39,7 +39,7 @@ dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina�
 
 **核心亮点**：
 
-- **8 大 Web Provider 原生能力深度适配**：保持统一 `web_search` / `web_fetch` 接口，但不把不同搜索源压成最低公共能力。针对 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、SearXNG 分别适配搜索类型、时效、域名策略、地区语言、深度检索与正文提取能力。
+- **9 大 Web Provider 原生能力深度适配**：保持统一 `web_search` / `web_fetch` 接口，但不把不同搜索源压成最低公共能力。针对 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、SearXNG 分别适配搜索类型、时效、域名策略、地区语言、深度检索与正文提取能力。
 - **SearchHints → Provider-specific 参数编译**：将 Query 中的技术 / 论文 / 新闻、时效、域名、地区与语言等搜索意图归一化，再按不同 Provider 的能力映射为各自原生参数；整个过程由确定性代码完成，不增加额外 LLM 调用。
 - **小红书与 Twitter / X 平台来源**：两个平台均通过独立的本地浏览器 Profile 提供已登录站内搜索、详情抓取，以及页面实际返回的评论或回复。
 - **多搜索源调度与自动容灾**：支持多 API Key 分配、鉴权失败切换、429 冷却、Ordered / Round-Robin / Random 路由，以及可配置 Provider Fallback。
@@ -72,7 +72,7 @@ dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina�
   <img src="https://raw.githubusercontent.com/A3Boy/dsh-web-tools/main/assets/searchOrderAndRouting.png" width="900" alt="dsh-web-tools 搜索策略与多源调度" />
 </p>
 
-## 8 大 Web Provider 原生能力深度适配
+## 9 大 Web Provider 原生能力深度适配
 
 统一的是 DSH 的工具接口和搜索语义，不统一的是各家 Provider 的能力。
 
@@ -95,6 +95,7 @@ dsh-web-tools 通过 SearchHints 表达查询意图，再针对不同 Provider �
 * **Brave Search**：LLM Context 预提取端点，支持 `pd/pw/pm/py` 时效、国家与搜索语言。
 * **You.com**：原生 **`boost_domains`** 软加权支持，时效与地区国家过滤。
 * **Jina**：搜索关键词降噪与 ReaderLM-v2 高精度 Markdown 正文解析。
+* **智谱 AI**：GLM 联网搜索（`/api/paas/v4/web_search`），原生支持搜索引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、时效过滤（`oneDay`–`oneYear`）、域名白名单与 `content_size` 摘要长度；仅搜索（web_fetch 走通用抓取器）。
 * **SearXNG**：自建元搜索支持 `categories` (it/science/news) 与 `time_range`。
 * **原生与通用正文提取 (`web_fetch`)**：配置 Tavily、Exa、Firecrawl、Parallel、You.com、Jina 时自动优先调用其原生云端提取接口；未配置或失败时，以及使用 SearXNG / Brave 时，自动平滑回退至**插件内置通用 HTTP 抓取器**（基于 Defuddle 纯本地 Markdown 解析与 SSRF / DNS 安全防护），无需额外配置或购买第三方 Fetch Key。
 
@@ -170,6 +171,7 @@ dsh plugin --profile web remove dsh-web-tools
 | [Brave Search](https://brave.com/search/api/) | 支持 | — | 默认优先 LLM Context 预提取模式，支持时效/区域语言过滤，不支持时自动回退 Classic 搜索 | 响应头自动捕获 |
 | [You.com](https://you.com) | 支持 | 支持，`/v1/contents` | 搜索高亮片段提取、原生 **`boost_domains`** 软加权、时效与国家过滤、Markdown 正文接口 | 官方 API |
 | [Jina](https://jina.ai) | 支持 | 支持，Reader | 搜索关键词降噪、ReaderLM-v2 高精度 Markdown 转换、Token 预算控制 | 尽力解析 |
+| [智谱 AI](https://open.bigmodel.cn) | 支持 | — | GLM 联网搜索，原生引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、`oneDay`–`oneYear` 时效、域名白名单、`content_size` 摘要长度 | 控制台自查 |
 | [SearXNG](https://docs.searxng.org) | 支持 | — | 开源自托管元搜索引擎，映射 `categories` (it/science/news) 与受支持的 `time_range`，适配器无需 API Key | 由自建实例决定 |
 
 ### 快速选型指南
@@ -184,6 +186,7 @@ dsh plugin --profile web remove dsh-web-tools
 | **可调深度搜索与正文提取** | **Tavily** / **Parallel** | 提供 Provider 原生深度档位与内容提取接口 |
 | **正文转 Markdown** | **Firecrawl** / **Jina** | 支持正文提取、主内容过滤或 Reader 转换 |
 | **时效、地区与域名偏好** | **You.com** | 支持 freshness、地区语言和 `boost_domains` 参数 |
+| **中文友好的多引擎搜索** | **智谱 AI** | GLM 联网搜索：`search_std` / `search_pro` / 搜狗 / 夸克，支持时效与域名白名单 |
 | **自托管元搜索** | **SearXNG** | 使用用户自己的 SearXNG 地址，适配器不要求 API Key |
 
 ---

@@ -669,6 +669,79 @@ function ProviderControls(props: {
       );
     }
 
+    // ------------------------------------------------------------ Zhipu AI
+    case "zhipu": {
+      const engine = String(raw("searchEngine", "search_std"));
+      const intent = raw("searchIntent", false) === true;
+      const recency = String(raw("recencyFilter", "noLimit"));
+      const contentSize = String(raw("contentSize", "medium"));
+      const engineDesc = engine === "search_pro" ? t("prefsZhipuEngineProDesc") : engine === "search_pro_sogou" ? t("prefsZhipuEngineSogouDesc") : engine === "search_pro_quark" ? t("prefsZhipuEngineQuarkDesc") : t("prefsZhipuEngineStdDesc");
+      return (
+        <>
+          <div className="dswt-pref-field">
+            <SectionLabel>{t("prefsZhipuEngineLabel")}</SectionLabel>
+            <SegmentedControl
+              style={{ width: "100%" }}
+              options={[
+                { value: "search_std", label: t("prefsZhipuEngineStd") },
+                { value: "search_pro", label: t("prefsZhipuEnginePro") },
+                { value: "search_pro_sogou", label: t("prefsZhipuEngineSogou") },
+                { value: "search_pro_quark", label: t("prefsZhipuEngineQuark") },
+              ]}
+              value={engine}
+              onChange={(v) => setValue("searchEngine", v, "search_std")}
+            />
+            <div className="dswt-pref-desc">
+              <span>{engineDesc}</span>
+            </div>
+          </div>
+          <div className="dswt-pref-field">
+            <SectionLabel>{t("prefsZhipuRecencyLabel")}</SectionLabel>
+            <SegmentedControl
+              style={{ width: "100%" }}
+              options={[
+                { value: "noLimit", label: t("prefsZhipuRecencyNoLimit") },
+                { value: "oneDay", label: t("prefsZhipuRecencyDay") },
+                { value: "oneWeek", label: t("prefsZhipuRecencyWeek") },
+                { value: "oneMonth", label: t("prefsZhipuRecencyMonth") },
+                { value: "oneYear", label: t("prefsZhipuRecencyYear") },
+              ]}
+              value={recency}
+              onChange={(v) => setValue("recencyFilter", v, "noLimit")}
+            />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Switch checked={intent} onChange={(v) => setValue("searchIntent", v, false)} label={t("prefsZhipuIntentLabel")} />
+            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 13, color: text.primary }}>{t("prefsZhipuIntentLabel")}</span>
+              <span style={{ fontSize: 12, color: text.secondary }}>{t("prefsZhipuIntentDesc")}</span>
+            </span>
+          </label>
+          <AdvancedDelay t={t}>
+            <div className="dswt-pref-field">
+              <SectionLabel>{t("prefsZhipuContentSizeLabel")}</SectionLabel>
+              <SegmentedControl
+                style={{ width: "100%" }}
+                options={[
+                  { value: "medium", label: t("prefsZhipuContentSizeMedium") },
+                  { value: "high", label: t("prefsZhipuContentSizeHigh") },
+                ]}
+                value={contentSize}
+                onChange={(v) => setValue("contentSize", v, "medium")}
+              />
+            </div>
+            <SettingInputRow
+              label={t("prefsZhipuDomainFilterLabel")}
+              hint={t("prefsZhipuDomainFilterHint")}
+              value={typeof draft.domainFilter === "string" ? draft.domainFilter : ""}
+              placeholder="www.example.com"
+              onChange={(v) => setValue("domainFilter", v.trim(), undefined)}
+            />
+          </AdvancedDelay>
+        </>
+      );
+    }
+
     default:
       return null;
   }

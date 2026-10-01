@@ -296,6 +296,13 @@ export function formatProviderOptionsSummary(providerName: string, effective: Re
       const engineLabel = engine === "curl" ? (t ? t("prefsJinaModeDirect") : "直接读取") : engine === "browser" ? (t ? t("prefsJinaModeBrowser") : "浏览器") : (t ? t("prefsJinaModeAuto") : "自动");
       return readerLm ? `${engineLabel} · ${t ? t("prefsJinaReaderLmLabel") : "ReaderLM-v2"}` : engineLabel;
     }
+    case "zhipu": {
+      const engine = String(effective.searchEngine ?? "search_std");
+      const recency = String(effective.recencyFilter ?? "noLimit");
+      const engineLabel = engine === "search_pro" ? (t ? t("prefsZhipuEnginePro") : "智谱高阶") : engine === "search_pro_sogou" ? (t ? t("prefsZhipuEngineSogou") : "搜狗") : engine === "search_pro_quark" ? (t ? t("prefsZhipuEngineQuark") : "夸克") : (t ? t("prefsZhipuEngineStd") : "智谱标准");
+      const recencyLabel = recency === "oneDay" ? (t ? t("prefsZhipuRecencyDay") : "一天内") : recency === "oneWeek" ? (t ? t("prefsZhipuRecencyWeek") : "一周内") : recency === "oneMonth" ? (t ? t("prefsZhipuRecencyMonth") : "一月内") : recency === "oneYear" ? (t ? t("prefsZhipuRecencyYear") : "一年内") : (t ? t("prefsZhipuRecencyNoLimit") : "不限");
+      return `${engineLabel} · ${recencyLabel}`;
+    }
     default:
       return t ? t("prefsDefault") : "默认设置";
   }

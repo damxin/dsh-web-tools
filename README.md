@@ -8,7 +8,7 @@
 
 Empower DeepSeek Harness with unified search and deep content extraction across the open web and social platforms.
 
-**Native-Capability Adaptation Across 8 Web Providers · SearchHints Semantic Compilation · Multi-Source Resilience · Xiaohongshu & Twitter / X Retrieval**
+**Native-Capability Adaptation Across 9 Web Providers · SearchHints Semantic Compilation · Multi-Source Resilience · Xiaohongshu & Twitter / X Retrieval**
 
 <p align="center">
   <a href="https://github.com/A3Boy/dsh-web-tools/stargazers">
@@ -31,7 +31,7 @@ Empower DeepSeek Harness with unified search and deep content extraction across 
 
 When web access depends on a single provider, exhausted quota, rate limits, or timeouts can interrupt retrieval. Wrapping multiple APIs with a naive proxy often flattens them to a lowest common denominator, failing to leverage each provider's specialized search modes, categories, freshness, domain rules, and extraction capabilities.
 
-dsh-web-tools connects Exa, Tavily, Firecrawl, Parallel, Brave, You.com, Jina, SearXNG, Xiaohongshu, and Twitter / X to DSH’s standard `web_search` / `web_fetch` interface.
+dsh-web-tools connects Exa, Tavily, Firecrawl, Parallel, Brave, You.com, Jina, Zhipu, SearXNG, Xiaohongshu, and Twitter / X to DSH’s standard `web_search` / `web_fetch` interface.
 
 While keeping the tool interface unified, dsh-web-tools normalizes search intents through SearchHints and compiles queries into native provider-specific parameters. This leverages each engine's native categories, freshness filters, domain policies, regional targeting, and content extraction, while maximizing uptime through multi-key allocation, automated failover, and dedicated browser profiles.
 
@@ -39,7 +39,7 @@ While keeping the tool interface unified, dsh-web-tools normalizes search intent
 
 **Key Highlights**:
 
-- **Native-Capability Adaptation Across 8 Web Providers**: Keeps the standard `web_search` / `web_fetch` contracts while compiling unified search intent into provider-specific native parameters instead of reducing every backend to the same lowest-common-denominator feature set.
+- **Native-Capability Adaptation Across 9 Web Providers**: Keeps the standard `web_search` / `web_fetch` contracts while compiling unified search intent into provider-specific native parameters instead of reducing every backend to the same lowest-common-denominator feature set.
 - **SearchHints → Provider-Specific Parameter Compilation**: Normalizes technical, research, news, date, region, and domain constraints from queries, compiling them into provider-native parameters through deterministic code without additional LLM latency.
 - **Xiaohongshu & Twitter / X Platform Sources**: Both platforms support signed-in native search, detail extraction, and returned comments or replies through dedicated local browser profiles.
 - **Multi-Source Scheduling & Resilience**: Features multi-API-key pooling, 401 failover, 429 cooldown windows, configurable Ordered / Round-Robin / Random routing, and failover chains.
@@ -72,7 +72,7 @@ While keeping the tool interface unified, dsh-web-tools normalizes search intent
   <img src="https://raw.githubusercontent.com/A3Boy/dsh-web-tools/main/assets/searchOrderAndRouting.png" width="900" alt="dsh-web-tools search strategy and multi-provider routing" />
 </p>
 
-## Native-Capability Adaptation Across 8 Web Providers
+## Native-Capability Adaptation Across 9 Web Providers
 
 The tool interface and search semantics are unified for the DSH agent, but underlying provider capabilities are not.
 
@@ -95,6 +95,7 @@ All adaptations run through deterministic code without invoking an extra LLM cal
 * **Brave Search**: LLM Context endpoint with `pd/pw/pm/py` freshness filters, country, and search language.
 * **You.com**: Native **`boost_domains`** soft-weighting, freshness presets, and geo/language targeting.
 * **Jina**: Query noise reduction and ReaderLM-v2 high-precision markdown extraction.
+* **Zhipu**: GLM web search (`/api/paas/v4/web_search`) with native engine selection (`search_std` / `search_pro` / Sogou / Quark), intent recognition, recency (`oneDay`–`oneYear`), domain whitelists, and `content_size` snippet control; search-only (web_fetch uses the generic fetcher).
 * **SearXNG**: Self-hosted metasearch with `categories` (it/science/news) and `time_range`.
 * **Native & Generic Page Extraction (`web_fetch`)**: Automatically routes to provider-native scraping backends (Exa `/contents`, Tavily `/extract`, Firecrawl `/scrape`, Parallel `/v1/extract`, You.com `/v1/contents`, Jina Reader) when available; seamlessly falls back to the **built-in generic HTTP fetcher** (powered by local Defuddle Markdown parsing with SSRF/DNS protection) for SearXNG-only / Brave-only setups or when native extractors fail.
 
@@ -170,6 +171,7 @@ Restart `dsh web` and navigate to `Settings` → `Web Search`.
 | [Brave Search](https://brave.com/search/api/) | Yes | — | Preferred LLM Context pre-extraction with `pd/pw/pm/py` freshness, country/lang filters, auto fallback to Classic Search | Response headers |
 | [You.com](https://you.com) | Yes | Yes, `/v1/contents` | Snippet highlights, native **`boost_domains`** soft-weighting, freshness and country/lang filters, markdown endpoint | Official API |
 | [Jina](https://jina.ai) | Yes | Yes, Reader | Search query noise filtering, ReaderLM-v2 high-precision markdown, token budget and truncation control | Best-effort |
+| [Zhipu](https://open.bigmodel.cn) | Yes | — | GLM web search with native engine selection (`search_std` / `search_pro` / Sogou / Quark), intent recognition, `oneDay`–`oneYear` recency, domain whitelist, `content_size` snippets | Dashboard only |
 | [SearXNG](https://docs.searxng.org) | Yes | — | Open-source self-hosted metasearch with `categories` and supported `time_range` values; the adapter requires no API key | Instance-defined |
 
 ### Quick Recommendation Guide
@@ -184,6 +186,7 @@ New installations default to **Exa**; existing installations keep their saved pr
 | **Configurable Search Depth and Extraction** | **Tavily** / **Parallel** | Provider-native depth modes and content extraction endpoints |
 | **Content-to-Markdown Extraction** | **Firecrawl** / **Jina** | Main-content filtering, scraping, and Reader conversion |
 | **Freshness, Region, and Domain Preference** | **You.com** | Freshness, locale, and `boost_domains` parameters |
+| **Chinese-Friendly Multi-Engine Search** | **Zhipu** | GLM web search with `search_std` / `search_pro` / Sogou / Quark engines, recency, and domain whitelist |
 | **Self-Hosted Metasearch** | **SearXNG** | Uses your SearXNG endpoint; the adapter requires no API key |
 
 ---

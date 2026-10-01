@@ -55,6 +55,8 @@ const LOGOS: Record<string, string> = {
   jina: `<svg fill="#000000" fill-rule="evenodd" height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Jina</title><path d="M6.608 21.416a4.608 4.608 0 100-9.217 4.608 4.608 0 000 9.217zM20.894 2.015c.614 0 1.106.492 1.106 1.106v9.002c0 5.13-4.148 9.309-9.217 9.37v-9.355l-.03-9.032c0-.614.491-1.106 1.106-1.106h7.158l-.123.015z"></path></svg>`,
 
   searxng: `<svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>SearXNG</title><path d="M6.638 4.38a5.35 5.35 0 017.747 3.963 5.35 5.35 0 01-.56 3.284l-1.154-.61A4.044 4.044 0 007.237 5.54l-.6-1.158z" fill="#3050FF"></path><path clip-rule="evenodd" d="M9.13 0a9.13 9.13 0 017.992 13.546l6.803 6.515-3.4 3.551-6.853-6.562A9.13 9.13 0 119.13 0zm0 2.61a6.521 6.521 0 100 13.042 6.521 6.521 0 000-13.043z" fill="#3050FF" fill-rule="evenodd"></path></svg>`,
+
+  zhipu: `<svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Zhipu AI</title><defs><linearGradient id="zhipuBg" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse"><stop stop-color="#2E8BFF"/><stop offset="1" stop-color="#0F52E0"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#zhipuBg)"/><path d="M7 8.1h7.9L7 16.9V19h10v-2.3H9.1L17 8.1V5.4H7v2.7z" fill="#fff"/></svg>`,
 };
 
 // ---------------------------------------------------------------------------
@@ -69,6 +71,7 @@ const FALLBACK_COLORS: Record<string, { bg: string; letter: string; label: strin
   firecrawl: { bg: "#F97316", letter: "F", label: "Firecrawl" },
   parallel:  { bg: "#8B5CF6", letter: "P", label: "Parallel" },
   jina:      { bg: "#10B981", letter: "J", label: "Jina" },
+  zhipu:     { bg: "#1E6FFF", letter: "Z", label: "Zhipu AI" },
   searxng:   { bg: "#6B7280", letter: "S", label: "SearXNG" },
 };
 

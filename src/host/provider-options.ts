@@ -13,6 +13,7 @@ import type {
   FirecrawlProviderOptions,
   ParallelProviderOptions,
   JinaProviderOptions,
+  ZhipuProviderOptions,
   ProviderOptionView,
 } from "../shared/provider-options.ts";
 
@@ -53,6 +54,12 @@ export const DEFAULT_PARALLEL_OPTIONS: Required<ParallelProviderOptions> = {
 export const DEFAULT_JINA_OPTIONS: Required<Pick<JinaProviderOptions, "fetchEngine" | "fetchReaderLmV2">> = {
   fetchEngine: "auto",
   fetchReaderLmV2: false,
+};
+
+export const DEFAULT_ZHIPU_OPTIONS: Required<Pick<ZhipuProviderOptions, "searchEngine" | "searchIntent" | "recencyFilter">> = {
+  searchEngine: "search_std",
+  searchIntent: false,
+  recencyFilter: "noLimit",
 };
 
 /** Validate options patch for a specific provider. Throws or returns sanitized options. */
@@ -170,6 +177,35 @@ export function sanitizeProviderOptions(
       }
       break;
     }
+    case "zhipu": {
+      const validEngines = ["search_std", "search_pro", "search_pro_sogou", "search_pro_quark"];
+      if (typeof raw.searchEngine === "string" && validEngines.includes(raw.searchEngine)) {
+        out.searchEngine = raw.searchEngine;
+      }
+      if (typeof raw.searchIntent === "boolean") {
+        out.searchIntent = raw.searchIntent;
+      }
+      if (typeof raw.count === "number" && Number.isFinite(raw.count) && raw.count >= 1 && raw.count <= 50) {
+        out.count = Math.round(raw.count);
+      }
+      const validRecency = ["noLimit", "oneDay", "oneWeek", "oneMonth", "oneYear"];
+      if (typeof raw.recencyFilter === "string" && validRecency.includes(raw.recencyFilter)) {
+        out.recencyFilter = raw.recencyFilter;
+      }
+      if (typeof raw.domainFilter === "string" && raw.domainFilter.trim().length > 0 && raw.domainFilter.length <= 500) {
+        out.domainFilter = raw.domainFilter.trim();
+      }
+      if (typeof raw.contentSize === "string" && (raw.contentSize === "medium" || raw.contentSize === "high")) {
+        out.contentSize = raw.contentSize;
+      }
+      if (typeof raw.requestId === "string" && raw.requestId.length >= 6 && raw.requestId.length <= 64) {
+        out.requestId = raw.requestId;
+      }
+      if (typeof raw.userId === "string" && raw.userId.length >= 6 && raw.userId.length <= 128) {
+        out.userId = raw.userId;
+      }
+      break;
+    }
   }
 
   return out;
@@ -211,6 +247,11 @@ export function buildProviderOptionView(
       // token/cache numeric fields omitted from effective by default; only
       // fetchEngine and fetchReaderLmV2 have static defaults.
       effective = { fetchEngine: DEFAULT_JINA_OPTIONS.fetchEngine, fetchReaderLmV2: DEFAULT_JINA_OPTIONS.fetchReaderLmV2, ...cleanOverrides };
+      break;
+    case "zhipu":
+      // Optional fields (count/domainFilter/contentSize/requestId/userId) stay
+      // omitted from effective until the operator overrides them.
+      effective = { ...DEFAULT_ZHIPU_OPTIONS, ...cleanOverrides };
       break;
     default:
       effective = cleanOverrides;
