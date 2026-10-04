@@ -1,0 +1,5 @@
+# Build as a standalone project with a flat (npm-style) node_modules layout.
+# pnpm's default symlinked .pnpm layout triggers TS2742 ("type cannot be
+# named portably") for Schemastery Config types referencing @deepseek-ai/cosmokit;
+# hoisting to a flat tree matches the upstream npm build and fixes it.
+node-linker: hoisted

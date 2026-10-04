@@ -175,21 +175,57 @@ export function installConfig(ctx: WebToolsContext, resolved?: unknown): ConfigH
   // The settings namespace is the loader entry id authored in cordis.patch.yml.
   const ns = ctx.fiber?.entry?.options?.id ?? SETTINGS_NS;
   let service: WebToolsSettingsService | undefined;
+  // Set only on hosts that still expose register() (DSH pre-0.1.7); reads and
+  // writes then prefer the registered scope.
+  let scope: { get?: () => unknown; update: (patch: object) => Promise<void> } | undefined;
+  let mounted = false;
   const mountedCbs: Array<() => void> = [];
+  // Synchronous echo of local writes. `service.update()` reconciles the loader's
+  // volatile refs asynchronously, so without this a read() right after a save
+  // (the client re-fetches config immediately) would still see the old value.
+  const overlay: Partial<WebToolsSettings> = {};
 
   ctx.inject(["settings"], (sctx) => {
     service = sctx.settings;
+    if (typeof service?.register === "function") {
+      try {
+        scope = service.register(ns, Config, { base: snapshotSettings(resolved) });
+      } catch {
+        /* register rejected the schema — fall through to the declarative path */
+      }
+    }
+    if (!scope && typeof service?.configure === "function") {
+      // DSH 0.1.7+: no register(). Ask SettingsForms not to auto-generate an
+      // empty generic page for this namespace (the client card provides the
+      // UI). Harmless on hosts without configure().
+      const svc = service;
+      const configure = svc.configure;
+      try {
+        ctx.effect?.(() => configure!({ auto: false }, (ctx as unknown as { fiber?: unknown }).fiber));
+      } catch {
+        /* older settings service without configure() */
+      }
+    }
+    mounted = true;
     // Persisted values are already folded into `resolved` by the loader; run
     // deferred boot work now that the settings service is definitely up.
     for (const cb of mountedCbs.splice(0)) cb();
   });
 
   return {
-    read: () => snapshotSettings(resolved),
+    read: () => ({
+      ...snapshotSettings(scope?.get ? scope.get() : resolved),
+      ...overlay,
+    }),
     write: async (patch) => {
-      if (!service) throw new Error(`dsh-web-tools settings namespace "${ns}" is not mounted`);
-      await service.update(ns, patch as object);
+      if (!scope && !service) throw new Error("dsh-web-tools settings namespace is not mounted");
+      Object.assign(overlay, patch);
+      if (scope) await scope.update(patch as object);
+      else await service!.update(ns, patch as object);
     },
-    onMounted: (cb) => mountedCbs.push(cb),
+    onMounted: (cb) => {
+      if (mounted) cb();
+      else mountedCbs.push(cb);
+    },
   };
 }

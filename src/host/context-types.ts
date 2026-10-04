@@ -52,6 +52,16 @@ export interface WebToolsWebRuntime {
 
 /** The settings service face (mirror of dsh-settings SettingsForms, dsh 0.1.7). */
 export interface WebToolsSettingsService {
+  /**
+   * Legacy namespace registration (DSH pre-0.1.7). Modern hosts have no
+   * register(); the declarative loader config is used instead.
+   */
+  register?(ns: string, schema: unknown, opts?: { base?: unknown }): {
+    get?: () => unknown;
+    update: (patch: object) => Promise<void>;
+  };
+  /** Disable auto-generated generic settings pages (SettingsForms, dsh 0.1.7+). */
+  configure?(options: { auto: boolean }, fiber?: unknown): void;
   describe(options?: { redactSecrets?: boolean }): Array<{
     ns: string;
     value?: unknown;

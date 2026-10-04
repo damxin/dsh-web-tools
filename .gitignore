@@ -34,3 +34,6 @@ pnpm-lock.yaml
 
 # local test SearXNG deployment data
 searxng-data/
+
+# local mimosa agent tool cache (session state, reports, finding ledger)
+.mimosa/

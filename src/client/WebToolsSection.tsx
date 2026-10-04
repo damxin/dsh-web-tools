@@ -443,7 +443,6 @@ export function WebToolsSection(props: SectionProps) {
   useEffect(() => {
     setProxyDraft(config?.proxyUrl ?? "");
   }, [config]);
-  const loadToken = useRef(0);
   const mounted = useRef(true);
 
   useEffect(() => {
