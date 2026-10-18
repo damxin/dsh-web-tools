@@ -1,4 +1,4 @@
-/**
+﻿/**
  * dsh-web-tools — Search Mode runtime state model tests (pure, no DSH/pnpm).
  *
  * Covers the behavior table demanded by the "联网搜索" feature: auto leaves the
@@ -15,10 +15,15 @@ import {
   createSearchModeMessages,
   searchModeStepMessage,
   webResearchCompleted,
+  requiredSearchText,
+  SEARCH_AUTO_TEXT,
+  SEARCH_DISABLED_TEXT,
   REQUIRED_SEARCH_TEXT,
+  REQUIRED_SEARCH_TEXT_NO_PLATFORMS,
   REQUIRED_SEARCH_CORRECTION_TEXT,
   type TurnState,
 } from "../src/host/search-mode-runtime.ts";
+import { nextSearchMode } from "../src/shared/api-types.ts";
 
 function runtime(available = true): SearchModeRuntime {
   return new SearchModeRuntime(() => available);
@@ -183,6 +188,91 @@ test("required message is a plugin snapshot section carrying REQUIRED_SEARCH_TEX
     "verified comment claims must be grounded in fetched comment content");
 });
 
+test("platform-routing lines disappear when no platform source can serve them", () => {
+  // Both platforms off: the policy must not teach a prefix that does nothing.
+  const { calls, createUserMessage } = captureFactory();
+  const messages = createSearchModeMessages(createUserMessage, () => false);
+  messages.required();
+  const text = calls[0].content[0].text as string;
+
+  assert.equal(text, REQUIRED_SEARCH_TEXT_NO_PLATFORMS);
+  assert.ok(!text.includes("routing prefix"),
+    "no routing-prefix guidance while both platform sources are disabled");
+  assert.ok(!text.includes("platform search box"),
+    "no platform-search-box guidance while both platform sources are disabled");
+  // The hard requirement and the evidence rules must survive the trim.
+  assert.ok(text.includes("complete at least one web_search or web_fetch call"));
+  assert.ok(text.includes("Use web_fetch for a specific URL"));
+  assert.ok(text.includes("not page details or comments"));
+  assert.ok(text.includes("only when web_fetch returns their contents"));
+});
+
+test("platform-routing lines return as soon as one platform source is re-enabled", () => {
+  let enabled = false;
+  const { calls, createUserMessage } = captureFactory();
+  const messages = createSearchModeMessages(createUserMessage, () => enabled);
+
+  messages.required();
+  assert.ok(!(calls[0].content[0].text as string).includes("routing prefix"),
+    "disabled platforms omit the prefix guidance");
+
+  // The predicate is read per call, so a settings flip lands on the NEXT turn
+  // without re-wiring the runtime.
+  enabled = true;
+  messages.required();
+  assert.equal(calls[1].content[0].text, REQUIRED_SEARCH_TEXT);
+  assert.ok((calls[1].content[0].text as string).includes("routing prefix"));
+});
+
+test("requiredSearchText defaults to the platform-aware text", () => {
+  assert.equal(requiredSearchText(), REQUIRED_SEARCH_TEXT);
+  assert.equal(requiredSearchText(true), REQUIRED_SEARCH_TEXT);
+  assert.equal(requiredSearchText(false), REQUIRED_SEARCH_TEXT_NO_PLATFORMS);
+});
+
+test("off mode freezes a disabled turn and never demands research", () => {
+  const r = runtime();
+  r.setMode("s-off", "off");
+  assert.equal(r.getMode("s-off"), "off");
+  assert.equal(r.isOff("s-off"), true);
+
+  const turn = r.beginTurn("s-off", 1);
+  assert.equal(turn.disabled, true, "off turns are frozen as disabled");
+  assert.equal(turn.required, false, "off must never be a required turn");
+});
+
+test("off mode injects the switched-off notice on step 1 only", () => {
+  const { calls, createUserMessage } = captureFactory();
+  const messages = createSearchModeMessages(createUserMessage);
+  const r = runtime();
+  r.setMode("s-off", "off");
+  const turn = r.beginTurn("s-off", 1);
+
+  const built = searchModeStepMessage(turn, 1, messages) as { __built: { content: Array<{ text: string }> } };
+  assert.equal(built.__built.content[0].text, SEARCH_DISABLED_TEXT);
+  assert.equal(calls.length, 1);
+  assert.equal((calls[0].source as { summary?: string }).summary, "Web Search disabled");
+
+  assert.equal(searchModeStepMessage(turn, 2, messages), undefined,
+    "later steps stay silent; the gate enforces the mode");
+});
+
+test("a disabled turn is never corrected at turn-stopping", () => {
+  const r = runtime();
+  r.setMode("s-off", "off");
+  const turn = r.beginTurn("s-off", 1);
+  // Turn-stopping only steers `required` turns; off must fall straight through.
+  assert.equal(turn.required, false);
+  assert.equal(webResearchCompleted(turn), false);
+});
+
+test("nextSearchMode cycles auto -> required -> off -> auto", () => {
+  assert.equal(nextSearchMode("auto"), "required");
+  assert.equal(nextSearchMode("required"), "off");
+  assert.equal(nextSearchMode("off"), "auto");
+});
+
+
 test("correction message is a one-shot plugin notice (not a snapshot)", () => {
   const { calls, createUserMessage } = captureFactory();
   const messages = createSearchModeMessages(createUserMessage);
@@ -280,9 +370,19 @@ test("webResearchCompleted is true when EITHER search or fetch completed", () =>
   assert.equal(webResearchCompleted(turnState({ webSearchCompleted: true, webFetchCompleted: true })), true);
 });
 
-test("pre-step injects nothing when the turn is not in required mode", () => {
-  const messages = createSearchModeMessages(() => "M");
-  assert.equal(searchModeStepMessage(turnState({ required: false }), 1, messages), undefined);
+test("auto turns get the optional-use criterion, never the requirement", () => {
+  const { calls, createUserMessage } = captureFactory();
+  const messages = createSearchModeMessages(createUserMessage);
+
+  const first = searchModeStepMessage(turnState({ required: false }), 1, messages) as {
+    __built: { content: Array<{ text: string }> };
+  };
+  assert.equal(first.__built.content[0].text, SEARCH_AUTO_TEXT);
+  assert.ok(SEARCH_AUTO_TEXT.includes("web_search"), "the criterion must name the tool");
+  assert.ok(SEARCH_AUTO_TEXT.includes("not required"), "auto must not read as a requirement");
+  assert.ok(SEARCH_AUTO_TEXT.includes("otherwise answer directly"), "the default must be stated");
+
+  // Later steps stay silent, and a missing turn state injects nothing.
   assert.equal(searchModeStepMessage(turnState({ required: false, webSearchCompleted: true }), 2, messages), undefined);
   assert.equal(searchModeStepMessage(undefined, 1, messages), undefined);
 });
@@ -312,3 +412,5 @@ test("slash /search and the UI button write the same runtime", () => {
   r.setMode(id, r.getMode(id) === "required" ? "auto" : "required");
   assert.equal(r.getMode(id), "auto");
 });
+
+

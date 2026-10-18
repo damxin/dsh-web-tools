@@ -229,10 +229,19 @@ test("fetchWithProxy routes through the CONFIGURED proxy (plugin setting, no env
   const restore = withProxyEnv({ HTTPS_PROXY: undefined, https_proxy: undefined, HTTP_PROXY: undefined, http_proxy: undefined });
   setProxyConfigSource(() => ({ proxyUrl: fx.proxyUrl, directProviders: { tavily: true } }));
   try {
-    // "brave" is not direct-marked → tunnels; the provider argument must reach
-    // the proxy decision (a regression here means every provider goes direct
-    // or every provider tunnels regardless of providerProxyDirect).
-    const res = await fetchWithProxy(`http://example.com/search?q=config`, undefined, "brave");
+    // Proxy-SELECTION guard. The regression this pins: the plugin setting must
+    // win over env/system, and a provider marked in providerProxyDirect must
+    // never tunnel. (A break here means every provider goes direct, or every
+    // provider tunnels regardless of the per-provider mark.)
+    assert.deepEqual(effectiveProxyFor("brave"), { url: fx.proxyUrl, source: "config" });
+    assert.equal(effectiveProxyFor("tavily"), undefined, "a direct-marked provider must never tunnel");
+
+    // End-to-end over the legacy path. example.com is NO provider's official
+    // endpoint, so providerMode stays off and the configured proxy is honored.
+    // (Provider mode itself deliberately fails closed on non-official
+    // destinations unless an outbound authorization grants allowProxy — that
+    // contract is pinned in fetch-proxy-provider.test.ts.)
+    const res = await fetchWithProxy(`http://example.com/search?q=config`);
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.path, "/search?q=config");

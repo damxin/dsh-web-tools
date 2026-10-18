@@ -45,7 +45,7 @@ export interface WebToolsWebServer {
   readonly host?: string;
 }
 
-/** The settings service face (mirror of dsh-settings SettingsForms, dsh 0.1.7). */
+/** The settings service face (mirror of dsh-settings SettingsProvider / SettingsForms, dsh 0.1.7). */
 export interface WebToolsSettingsService {
   /**
    * Legacy namespace registration (DSH pre-0.1.7). Modern hosts have no
@@ -113,7 +113,10 @@ export interface WebToolsEffect {
  */
 export interface WebToolsContext {
   webServer: WebToolsWebServer;
-  /** Optional: reached through `ctx.inject(["settings"], …)`, never required. */
+  /**
+   * Optional: reached through `ctx.inject(["settings"], …)`, never required.
+   * `fiber.entry.options.id` below carries this entry's namespace id.
+   */
   settings: WebToolsSettingsService;
   credentials: WebToolsCredentialsService;
   web: WebToolsWebSeam;
@@ -174,4 +177,3 @@ export interface WebToolsCommandDefinition {
 export interface WebToolsCommands {
   register(definition: WebToolsCommandDefinition): () => void;
 }
-

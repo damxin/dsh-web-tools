@@ -16,18 +16,34 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Button,
-  IconSearchOutlineRegular,
-  IconEditOutlineRegular,
-  IconSettingsOutlineRegular,
   Input,
   StateDot,
 } from "@deepseek-ai/dsh-client-ui-primitives";
-import { api, type ConfigView, type QuotaView, type TestProviderView, type TestSearchView, type ProviderView, type SearchRoutingPolicy, type VersionCheckView, type PlatformStatusResponse } from "./api.ts";
+import {
+  IconSearchOutline16,
+  IconEditOutline16,
+  IconSettingsOutline16,
+  IconPlusOutline16,
+  IconGlobeOutline14,
+} from "./icons.ts";
+import {
+  api,
+  WebToolsApiError,
+  type ConfigView,
+  type QuotaView,
+  type TestProviderView,
+  type TestSearchView,
+  type ProviderView,
+  type SearchRoutingPolicy,
+  type VersionCheckView,
+  type PlatformStatusResponse,
+} from "./api.ts";
 import { arePlatformStatusesEqual, getPlatformPollIntervalMs } from "./platform-polling.ts";
-import { applyRoutingResult, createReadSequencer } from "./routing-state.ts";
+import { applyRoutingResult, createReadSequencer, routingFields } from "./routing-state.ts";
 import { CURRENT_VERSION } from "../shared/version.ts";
 import { text, surface, state as stateColor, button as buttonColor } from "./theme.ts";
 import { ProviderModal } from "./ProviderModal.tsx";
+import { CustomProviderEditor } from "./CustomProviderEditor.tsx";
 import { ExternalLinkIcon, PROVIDER_CAPABILITY_KEY } from "./provider-ui-meta.tsx";
 import type { UiFace } from "./registration.ts";
 import { PROVIDER_BRAND } from "./brand.ts";
@@ -166,8 +182,12 @@ function ProviderRow(props: {
           <GripIcon />
         </span>
       )}
-      {PROVIDER_BRAND[p.name] && (
+      {PROVIDER_BRAND[p.name] ? (
         <img src={PROVIDER_BRAND[p.name].icon} alt="" width={22} height={22} style={{ borderRadius: 5, flex: "none" }} />
+      ) : (
+        <div style={{ width: 22, height: 22, borderRadius: 5, background: surface.layer2, border: `1px solid ${surface.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+          <IconGlobeOutline14 size={14} />
+        </div>
       )}
     </div>
   );
@@ -241,6 +261,21 @@ function ProviderRow(props: {
   const titleWithBadge = (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
       <span>{p.label}</span>
+      {p.custom && (
+        <span
+          style={{
+            fontSize: 10,
+            padding: "1px 5px",
+            borderRadius: 4,
+            background: surface.layer2,
+            border: `1px solid ${surface.border}`,
+            color: text.secondary,
+            lineHeight: "14px",
+          }}
+        >
+          {t("customProviderTag")}
+        </span>
+      )}
       {showPreferred && (
         <span
           style={{
@@ -272,7 +307,7 @@ function ProviderRow(props: {
         trailingClassName="wt-provider-meta"
         icon={brandIcon}
         title={titleWithBadge}
-        subtitle={t(PROVIDER_CAPABILITY_KEY[p.name] ?? "capability.search")}
+        subtitle={p.custom ? (p.description || t("customProviderTag")) : t(PROVIDER_CAPABILITY_KEY[p.name] ?? "capability.search")}
         trailing={trailing}
         chevron={!editMode}
         isLast={isLast}
@@ -325,7 +360,7 @@ function TestSearchBlock(props: { t: TFunc; config: ConfigView; onError: (msg: s
         <div style={{ flex: 1, minWidth: 0 }}>
           <Input
             value={query}
-            icon={<IconSearchOutlineRegular size={14} />}
+            icon={<IconSearchOutline16 size={14} />}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("searchPlaceholder")}
             onKeyDown={(e) => { if (e.key === "Enter") void run(); }}
@@ -430,6 +465,8 @@ export function WebToolsSection(props: SectionProps) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [detailFor, setDetailFor] = useState<string | null>(null);
+  const [customEditorOpen, setCustomEditorOpen] = useState(false);
+  const [customEditProvider, setCustomEditProvider] = useState<ProviderView | undefined>(undefined);
   const [editingOrder, setEditingOrder] = useState(false);
   const [providerTestResults, setProviderTestResults] = useState<Record<string, TestProviderView>>({});
   const [busyProviders, setBusyProviders] = useState<Record<string, boolean>>({});
@@ -444,6 +481,17 @@ export function WebToolsSection(props: SectionProps) {
     setProxyDraft(config?.proxyUrl ?? "");
   }, [config]);
   const mounted = useRef(true);
+  /** Mirror of the latest rendered config, for handlers that must not read a stale closure. */
+  const configRef = useRef<ConfigView | null>(null);
+  configRef.current = config;
+  /** Monotonic id of the newest routing edit, so only the last intent settles the view. */
+  const orderWriteSeq = useRef(0);
+  /** Newest routing intent not yet confirmed by the Host (see saveOrder). */
+  const pendingOrder = useRef<import("./routing-state.ts").RoutingWriteResult | null>(null);
+  /** Whether a routing write is currently in flight. */
+  const orderWriteInFlight = useRef(false);
+  /** True while a routing edit is being persisted in the background. */
+  const [savingOrder, setSavingOrder] = useState(false);
 
   useEffect(() => {
     if (config?.providerAttemptTimeoutMs !== undefined) {
@@ -480,7 +528,9 @@ export function WebToolsSection(props: SectionProps) {
       // a newer read STARTED silently loses the update and leaves the card
       // stale until it is reopened.
       if (!readSeq.current.accept(seq)) return;
-      setConfig(cfg);
+      // Keep an un-confirmed routing edit on top: the write takes seconds, and
+      // a read landing inside that window would otherwise repaint the old order.
+      setConfig(pendingOrder.current ? applyRoutingResult(cfg, pendingOrder.current) : cfg);
       setError("");
     } catch (e) {
       if (mounted.current && readSeq.current.accept(seq)) {
@@ -602,10 +652,24 @@ export function WebToolsSection(props: SectionProps) {
     const providerProxyDirect = Object.fromEntries(config.providers.map((p) => [p.name, p.name === name ? direct : p.proxyDirect === true]));
     void save({ providerProxyDirect });
   };
-  const setBaseUrl = (name: string, baseUrl: string) => {
-    const providerBaseUrls: Record<string, string> = { ...(config.providers.reduce((a, p) => ({ ...a, [p.name]: p.baseUrl ?? "" }), {})) };
-    providerBaseUrls[name] = baseUrl;
-    void save({ providerBaseUrls });
+  const setBaseUrl = async (name: string, baseUrl: string) => {
+    try {
+      await api.sourceEndpointSet(name, baseUrl);
+      await load();
+    } catch (err: any) {
+      if (err instanceof WebToolsApiError && err.code === "conflict") {
+        if (window.confirm(err.message || t("confirmForeignOverride"))) {
+          try {
+            await api.sourceEndpointSet(name, baseUrl, true);
+            await load();
+          } catch (retryErr: any) {
+            setError(retryErr instanceof Error ? retryErr.message : String(retryErr));
+          }
+        }
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
   };
 
   const commitTimeoutSec = (secStr: string) => {
@@ -628,18 +692,76 @@ export function WebToolsSection(props: SectionProps) {
     ...config.fallbackOrder.filter((n) => n !== config.defaultProvider),
   ];
   const providerOf = (name: string) => config.providers.find((p) => p.name === name);
-  const saveOrder = (ordered: string[], policy: SearchRoutingPolicy = config.searchRoutingPolicy ?? "ordered") => {
-    const next = ordered.filter((n, i) => ordered.indexOf(n) === i);
-    // The write response already carries the authoritative new order, so paint
-    // it directly. Waiting for a follow-up config read-back made the edit
-    // appear to do nothing until the settings page was reopened.
+
+  /**
+   * Latest routing order read from the live config, not this render's closure,
+   * so rapid successive edits compose instead of overwriting each other.
+   */
+  const liveOrder = (): string[] => {
+    const c = configRef.current;
+    if (!c) return [];
+    return [c.defaultProvider, ...c.fallbackOrder.filter((n) => n !== c.defaultProvider)];
+  };
+
+  /**
+   * Persist a routing edit.
+   *
+   * The DSH settings write edits the profile patch and recomposes the profile,
+   * which measures in SECONDS (routing/set ~2.4-3.9s against config/get
+   * ~11-57ms). Two consequences shape this:
+   *
+   *  - painting only after the response makes the control feel dead, so the new
+   *    order is applied locally at once and the write runs behind it, and
+   *  - a read completing inside that multi-second window would otherwise
+   *    repaint the OLD order and visibly undo the edit, so the un-confirmed
+   *    intent is held in `pendingOrder` and re-applied over every read until the
+   *    write settles.
+   *
+   * Writes are drained one at a time; a newer edit replaces the pending intent
+   * instead of racing a second multi-second recomposition.
+   */
+  const saveOrder = (ordered: readonly string[], policy: SearchRoutingPolicy = config.searchRoutingPolicy ?? "ordered") => {
+    const fields = routingFields(ordered, policy);
+    ++orderWriteSeq.current;
+    pendingOrder.current = fields;
+
+    setConfig((prev) => applyRoutingResult(prev, fields));
+    setError("");
+    setSavingOrder(true);
+    drainOrderWrites();
+  };
+
+  /** Send the pending routing intent, then drain again if another arrived. */
+  const drainOrderWrites = () => {
+    if (orderWriteInFlight.current) return; // the in-flight settle drains next
+    const fields = pendingOrder.current;
+    if (!fields) {
+      setSavingOrder(false);
+      return;
+    }
+    const seq = orderWriteSeq.current;
+    orderWriteInFlight.current = true;
+
     void api
-      .routingSet(policy, next)
+      .routingSet(fields.policy, [fields.defaultProvider, ...fields.fallbackOrder])
       .then((result) => {
+        if (seq !== orderWriteSeq.current) return; // a newer intent owns the view
+        pendingOrder.current = null;
         setConfig((prev) => applyRoutingResult(prev, result));
         setError("");
       })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : String(e));
+        if (seq !== orderWriteSeq.current) return;
+        // Roll the optimistic order back to what the Host actually holds.
+        pendingOrder.current = null;
+        void load();
+      })
+      .finally(() => {
+        orderWriteInFlight.current = false;
+        if (pendingOrder.current) drainOrderWrites();
+        else setSavingOrder(false);
+      });
   };
 
   // Rendering order: providers are listed in the routing order (default +
@@ -779,9 +901,14 @@ export function WebToolsSection(props: SectionProps) {
               </span>
             }
             trailing={
-              <Button size="sm" variant={editingOrder ? "primary" : "outline"} icon={!editingOrder ? <IconEditOutlineRegular size={13} /> : undefined} onClick={() => setEditingOrder(!editingOrder)}>
-                {editingOrder ? t("done") : t("editOrder")}
-              </Button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                {/* The order repaints instantly; this only reports that the
+                    (slow) profile write behind it is still in flight. */}
+                {savingOrder && <span style={{ color: text.tertiary, fontSize: 12 }}>{t("saving")}</span>}
+                <Button size="sm" variant={editingOrder ? "primary" : "outline"} icon={!editingOrder ? <IconEditOutline16 size={13} /> : undefined} onClick={() => setEditingOrder(!editingOrder)}>
+                  {editingOrder ? t("done") : t("editOrder")}
+                </Button>
+              </div>
             }
             isLast
           />
@@ -801,7 +928,7 @@ export function WebToolsSection(props: SectionProps) {
                   { value: "random", label: t("routingPolicy.random") },
                 ]}
                 value={config.searchRoutingPolicy ?? "ordered"}
-                onChange={(v) => saveOrder(orderedProviders, v as SearchRoutingPolicy)}
+                onChange={(v) => saveOrder(liveOrder(), v as SearchRoutingPolicy)}
               />
               <div style={{ marginTop: 8, fontSize: 12, color: text.tertiary }}>
                 {t(`routingPolicyHint.${config.searchRoutingPolicy ?? "ordered"}`)}
@@ -923,7 +1050,23 @@ export function WebToolsSection(props: SectionProps) {
 
       {/* Providers: unified group container */}
       <section>
-        <SettingsGroup title={t("providersLabel")} dividers="inset">
+        <SettingsGroup
+          title={t("providersLabel")}
+          action={
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<IconPlusOutline16 size={13} />}
+              onClick={() => {
+                setCustomEditProvider(undefined);
+                setCustomEditorOpen(true);
+              }}
+            >
+              {t("addCustomProvider")}
+            </Button>
+          }
+          dividers="inset"
+        >
           {renderedProviders.map((p, idx) => {
             const testResult = providerTestResults[p.name];
             const isDragging = editingOrder && dragProvider.current === p.name;
@@ -961,8 +1104,8 @@ export function WebToolsSection(props: SectionProps) {
                   setOverProvider(null);
                   if (!fromName || fromName === p.name) return;
 
-                  // Compute next order
-                  const currentOrderList = [...orderedProviders];
+                  // Compute next order from the LIVE order so rapid edits compose
+                  const currentOrderList = [...liveOrder()];
                   const fromIdx = currentOrderList.indexOf(fromName);
                   const toIdx = currentOrderList.indexOf(p.name);
 
@@ -980,13 +1123,20 @@ export function WebToolsSection(props: SectionProps) {
                   setOverProvider(null);
                 }}
                 onRemove={() => {
-                  const next = orderedProviders.filter((n) => n !== p.name);
+                  const next = liveOrder().filter((n) => n !== p.name);
                   if (next.length > 0) saveOrder(next);
                 }}
                 onAdd={() => {
-                  if (!orderedProviders.includes(p.name)) saveOrder([...orderedProviders, p.name]);
+                  const current = liveOrder();
+                  if (!current.includes(p.name)) saveOrder([...current, p.name]);
                 }}
-                onClick={() => setDetailFor(p.name)}
+                onClick={() => {
+                  if (p.custom) {
+                    setCustomEditProvider(p);
+                  } else {
+                    setDetailFor(p.name);
+                  }
+                }}
               />
             );
           })}
@@ -999,7 +1149,7 @@ export function WebToolsSection(props: SectionProps) {
           <SettingsRow
             icon={
               <div style={{ display: "inline-flex", alignItems: "center", color: text.secondary }}>
-                <IconSettingsOutlineRegular size={16} />
+                <IconSettingsOutline16 size={16} />
               </div>
             }
             title={t("diagnosticsAndMore")}
@@ -1123,6 +1273,31 @@ export function WebToolsSection(props: SectionProps) {
             setProviderTestResults((prev) => { const next = { ...prev }; delete next[detailProvider.name]; return next; });
             await load();
           }}
+        />
+      )}
+
+      {/* Custom provider add/edit dialog */}
+      {(customEditorOpen || customEditProvider) && (
+        <CustomProviderEditor
+          open
+          onClose={() => {
+            setCustomEditorOpen(false);
+            setCustomEditProvider(undefined);
+          }}
+          provider={customEditProvider}
+          onSaved={async (sourceId, addToOrder) => {
+            await load();
+            if (addToOrder) {
+              const currentOrder = liveOrder();
+              if (!currentOrder.includes(sourceId)) {
+                await saveOrder([...currentOrder, sourceId]);
+              }
+            }
+          }}
+          onDeleted={async () => {
+            await load();
+          }}
+          t={t}
         />
       )}
     </div>

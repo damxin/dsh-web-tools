@@ -6,7 +6,6 @@
 import type { QuotaSnapshot } from "../quota.ts";
 import { providerError } from "./types.ts";
 import { fetchWithProxy } from "../fetch-proxy.ts";
-import { TAVILY_META } from "./tavily.ts";
 
 const TAVILY_USAGE_URL = "https://api.tavily.com/usage";
 
@@ -16,7 +15,7 @@ export async function tavilyQuota(apiKey: string, signal?: AbortSignal): Promise
   const res = await fetchWithProxy(TAVILY_USAGE_URL, {
     headers: { authorization: `Bearer ${token}` },
     signal,
-  }, TAVILY_META.name);
+  }, { provider: "tavily" });
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) throw providerError("auth", `Tavily usage auth failed (HTTP ${res.status})`, res.status);
     if (res.status === 429) throw providerError("rate-limit", "Tavily rate limit exceeded (HTTP 429)", res.status);

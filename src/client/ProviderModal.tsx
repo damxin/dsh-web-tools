@@ -7,7 +7,14 @@
  * @module
  */
 import { useState, useRef, type CSSProperties } from "react";
-import { Button, IconChevronRightOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular, IconCloseOutlineRegular, IconSettingsOutlineRegular, Modal, StateDot } from "@deepseek-ai/dsh-client-ui-primitives";
+import { Button, Modal, StateDot } from "@deepseek-ai/dsh-client-ui-primitives";
+import {
+  IconChevronRightOutline14,
+  IconPlusOutline16,
+  IconTrashOutline16,
+  IconCloseOutline16,
+  IconSettingsOutline16,
+} from "./icons.ts";
 import { api, type ProviderView, type QuotaView, type TestProviderView } from "./api.ts";
 import { text, surface, state as stateColor } from "./theme.ts";
 import { Switch, type TFunc } from "./WebToolsSection.tsx";
@@ -213,7 +220,7 @@ function CredentialDisclosure(props: {
         </div>
         <div className="dswt-row-chevron">
           <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .15s ease", display: "inline-flex" }}>
-            <IconChevronRightOutlineRegular size={14} />
+            <IconChevronRightOutline14 size={14} />
           </span>
         </div>
       </button>
@@ -291,7 +298,7 @@ function CredentialList(props: {
                 </Button>
               </div>
             ) : (
-              <Button size="sm" variant="ghost" icon={<IconTrashOutlineRegular size={14} />} onClick={() => setConfirmKeyId(k.id)} disabled={busyKey === k.id} aria-label={t("removeKey")} />
+              <Button size="sm" variant="ghost" icon={<IconTrashOutline16 size={14} />} onClick={() => setConfirmKeyId(k.id)} disabled={busyKey === k.id} aria-label={t("removeKey")} />
             )}
           </div>
         </div>
@@ -307,7 +314,7 @@ function CredentialList(props: {
         </div>
       ) : (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-          <Button size="sm" variant="outline" icon={<IconPlusOutlineRegular size={14} />} onClick={() => setAdding(true)}>{t("addKey")}</Button>
+          <Button size="sm" variant="outline" icon={<IconPlusOutline16 size={14} />} onClick={() => setAdding(true)}>{t("addKey")}</Button>
           <Button size="sm" variant="ghost" onClick={onTest} disabled={busy || keys.length === 0}>
             {busy ? t("testingConnection") : t("testConnection")}
           </Button>
@@ -335,8 +342,8 @@ function ConnectionSettingsDisclosure(props: {
 }) {
   const { t, p, draftBaseUrl, setDraftBaseUrl, onBaseUrl } = props;
   const selfHosted = p.name === "searxng";
-  const [open, setOpen] = useState(selfHosted);
-  const isConfigured = !!p.baseUrl;
+  const isConfigured = !!p.baseUrlConfigured;
+  const [open, setOpen] = useState(selfHosted || isConfigured);
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -358,7 +365,7 @@ function ConnectionSettingsDisclosure(props: {
         </div>
         <div className="dswt-row-chevron">
           <span style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .15s ease", display: "inline-flex" }}>
-            <IconChevronRightOutlineRegular size={14} />
+            <IconChevronRightOutline14 size={14} />
           </span>
         </div>
       </button>
@@ -375,17 +382,24 @@ function ConnectionSettingsDisclosure(props: {
                 }
               }}
               onBlur={() => {
-                if (draftBaseUrl.trim() !== (p.baseUrl ?? "")) onBaseUrl(draftBaseUrl.trim());
+                if (draftBaseUrl.trim() !== (p.baseUrlConfigured ? (p.baseUrl ?? "") : "")) {
+                  onBaseUrl(draftBaseUrl.trim());
+                }
               }}
-              placeholder={t("baseUrlPlaceholder")}
+              placeholder={p.defaultBaseUrl || t("baseUrlPlaceholder")}
               style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${surface.border}`, background: surface.layer2, color: text.primary, fontFamily: "inherit", fontSize: 13 }}
             />
-            {p.baseUrl && (
+            {isConfigured && (
               <Button size="sm" variant="ghost" onClick={() => { setDraftBaseUrl(""); onBaseUrl(""); }}>
                 {t("restoreDefaultUrl")}
               </Button>
             )}
           </div>
+          {p.baseUrlForeign && (
+            <div style={{ fontSize: 12, color: stateColor.warning, marginTop: 2 }}>
+              {t("foreignHostWarning")}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -396,7 +410,7 @@ export function ProviderModal(props: Props) {
   adoptWebToolsStyles();
   const { t, p, quota, testResult, busy, showPreferred, inChain, onClose, onToggle, onBaseUrl, onProxyDirect, onTest, onRefreshQuota, onConfigChanged } = props;
   const [localError, setLocalError] = useState("");
-  const [draftBaseUrl, setDraftBaseUrl] = useState(p.baseUrl ?? "");
+  const [draftBaseUrl, setDraftBaseUrl] = useState(p.baseUrlConfigured ? (p.baseUrl ?? "") : "");
   const base = providerStatusOf(p, quota, inChain);
   const status = base === "ready" ? (testOutcomeStatus(testResult) ?? base) : base;
   const statusText = {
@@ -466,7 +480,7 @@ export function ProviderModal(props: Props) {
               aria-label={t("close")}
               className="dswt-modal-close-btn"
             >
-              <IconCloseOutlineRegular size={16} />
+              <IconCloseOutline16 size={16} />
             </button>
           </div>
         </div>
@@ -531,7 +545,7 @@ export function ProviderModal(props: Props) {
           <SettingsRow
             icon={
               <div style={{ display: "inline-flex", alignItems: "center", color: text.secondary }}>
-                <IconSettingsOutlineRegular size={16} />
+                <IconSettingsOutline16 size={16} />
               </div>
             }
             title={t("advancedSettingsTitle")}

@@ -15,6 +15,8 @@ import type { WebToolsContext } from "./context-types.ts";
 import type { QuotaSnapshot } from "./quota.ts";
 import type { StoredProviderOptions } from "../shared/provider-options.ts";
 import type { SearchRoutingPolicy } from "../shared/api-types.ts";
+import type { CustomProviderConfig } from "../shared/custom-provider-types.ts";
+import type { OutboundAuthorization } from "./provider-transport.ts";
 /** Persistent search routing policy id (shared with the client card). */
 export type ToolSearchRoutingPolicy = SearchRoutingPolicy;
 /** Settings namespace for this plugin (= the cordis.patch.yml insert row id). */
@@ -43,6 +45,9 @@ export declare const DEFAULT_SETTINGS: {
     proxyUrl: string;
     providerProxyDirect: Record<string, boolean>;
     uiLanguage: "auto" | "zh" | "en";
+    customProviders: CustomProviderConfig[];
+    /** Operator-granted outbound destinations for internal gateways / private IPs. */
+    outboundAuthorizations: OutboundAuthorization[];
 };
 /** Plain resolved-settings shape the Host code consumes (volatile refs unwrapped). */
 export interface WebToolsSettings {
@@ -67,6 +72,10 @@ export interface WebToolsSettings {
     providerProxyDirect: Record<string, boolean>;
     /** Page UI language: "auto" follows the DSH UI language, zh/en force it. */
     uiLanguage: "auto" | "zh" | "en";
+    /** Operator-defined custom search sources (Issue #9). */
+    customProviders: CustomProviderConfig[];
+    /** Operator-granted outbound destinations for internal gateways / private IPs. */
+    outboundAuthorizations: OutboundAuthorization[];
 }
 /**
  * The plugin Config schema (cordis convention: the loader picks up the
@@ -91,6 +100,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     proxyUrl: z<string, string, "volatile-defined">;
     providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
     uiLanguage: z<"auto" | "zh" | "en", "auto" | "zh" | "en", "volatile-defined">;
+    customProviders: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
+    outboundAuthorizations: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     enabled: z<boolean, boolean, "volatile-defined">;
     defaultProvider: z<string, string, "volatile-defined">;
@@ -105,6 +116,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     proxyUrl: z<string, string, "volatile-defined">;
     providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
     uiLanguage: z<"auto" | "zh" | "en", "auto" | "zh" | "en", "volatile-defined">;
+    customProviders: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
+    outboundAuthorizations: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
 }>>, "plain">;
 /** A settings-scope handle: current value + write path. */
 export interface ConfigHandle {
@@ -119,6 +132,14 @@ export interface ConfigHandle {
      */
     onMounted: (cb: () => void) => void;
 }
+/**
+ * Keep only usable base-URL overrides.
+ *
+ * A malformed override must never reach an adapter: an entry that is not an
+ * absolute http(s) URL is dropped (which restores the official endpoint) rather
+ * than being passed down and failing at request time.
+ */
+export declare function sanitizeBaseUrlOverrides(value: unknown): Record<string, string>;
 /**
  * Build the config handle. `resolved` is the loader-resolved plugin config
  * handed to `apply(ctx, config)` — volatile fields arrive as live refs, so

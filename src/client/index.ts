@@ -22,12 +22,8 @@ import { registerSettingsSection, type UiFace } from "./registration.ts";
 import { SearchModeButton } from "./SearchModeButton.tsx";
 import { zhDict, enDict } from "./i18n-dict.ts";
 import { adoptWebToolsStyles } from "./ui/styles.ts";
-import { patchPrimitivesIcons } from "./compat-icons.ts";
-import * as primitives from "@deepseek-ai/dsh-client-ui-primitives";
 import * as React from "react";
 import { useSyncExternalStore } from "react";
-
-patchPrimitivesIcons(primitives as any);
 
 export { zhDict, enDict };
 
@@ -95,10 +91,18 @@ export function apply(ctx: any) {
     );
     return React.createElement(SearchModeButton, {
       sessionId: props.sessionId,
-      label: t("searchModeLabel"),
       unavailableLabel: t("searchModeUnavailable"),
-      autoTooltip: t("searchModeTooltipAuto"),
-      requiredTooltip: t("searchModeTooltipRequired"),
+      menuLabel: t("searchModeMenuLabel"),
+      labels: {
+        auto: t("searchModeAuto"),
+        required: t("searchModeRequired"),
+        off: t("searchModeOff"),
+      },
+      descriptions: {
+        auto: t("searchModeAutoDesc"),
+        required: t("searchModeRequiredDesc"),
+        off: t("searchModeOffDesc"),
+      },
     });
   };
 

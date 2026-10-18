@@ -15,6 +15,9 @@ import type { WebToolsContext, WebToolsSettingsService } from "./context-types.t
 import type { QuotaSnapshot } from "./quota.ts";
 import type { StoredProviderOptions } from "../shared/provider-options.ts";
 import type { SearchRoutingPolicy } from "../shared/api-types.ts";
+import type { CustomProviderConfig } from "../shared/custom-provider-types.ts";
+import type { OutboundAuthorization } from "./provider-transport.ts";
+import { loadCustomProviders } from "./custom-provider-schema.ts";
 
 /** Persistent search routing policy id (shared with the client card). */
 export type ToolSearchRoutingPolicy = SearchRoutingPolicy;
@@ -64,6 +67,16 @@ export const DEFAULT_SETTINGS = {
   // Page UI language: "auto" follows the DSH UI language; "zh"/"en" force the
   // page to that language regardless of the DSH-wide preference.
   uiLanguage: "auto" as "auto" | "zh" | "en",
+  // Operator-defined search sources (Issue #9). Kept in their OWN array rather
+  // than merged into providerBaseUrls/providerEnabled: a merge would force a
+  // migration of every existing profile for no benefit, and custom sources
+  // carry structure (protocol, auth, mapping) the flat maps cannot express.
+  customProviders: [] as CustomProviderConfig[],
+  /** Operator-granted outbound destinations for internal gateways / private IPs. */
+  outboundAuthorizations: [
+    { host: "127.0.0.1", port: 8080, allowPrivate: true, allowHttp: true, note: "SearXNG default instance" },
+    { host: "localhost", port: 8080, allowPrivate: true, allowHttp: true, note: "SearXNG default instance" },
+  ] as OutboundAuthorization[],
 };
 
 /** Plain resolved-settings shape the Host code consumes (volatile refs unwrapped). */
@@ -89,6 +102,10 @@ export interface WebToolsSettings {
   providerProxyDirect: Record<string, boolean>;
   /** Page UI language: "auto" follows the DSH UI language, zh/en force it. */
   uiLanguage: "auto" | "zh" | "en";
+  /** Operator-defined custom search sources (Issue #9). */
+  customProviders: CustomProviderConfig[];
+  /** Operator-granted outbound destinations for internal gateways / private IPs. */
+  outboundAuthorizations: OutboundAuthorization[];
 }
 
 /**
@@ -114,6 +131,10 @@ export const Config = z.object({
   proxyUrl: z.string().default(DEFAULT_SETTINGS.proxyUrl).volatile(),
   providerProxyDirect: z.dict(z.boolean()).default(DEFAULT_SETTINGS.providerProxyDirect).volatile(),
   uiLanguage: z.union([z.const("auto"), z.const("zh"), z.const("en")]).default(DEFAULT_SETTINGS.uiLanguage).volatile(),
+  // Validated structurally on load; a bad entry is dropped, never thrown, so a
+  // hand-edited profile cannot make the plugin fail to register.
+  customProviders: z.array(z.any()).default(DEFAULT_SETTINGS.customProviders).volatile(),
+  outboundAuthorizations: z.array(z.any()).default(DEFAULT_SETTINGS.outboundAuthorizations).volatile(),
 });
 
 /** A settings-scope handle: current value + write path. */
@@ -133,6 +154,62 @@ export interface ConfigHandle {
 /** A live volatile ref the loader produces for `.volatile()` schema fields. */
 interface VolatileRef {
   get: () => unknown;
+}
+
+/**
+ * Keep only usable base-URL overrides.
+ *
+ * A malformed override must never reach an adapter: an entry that is not an
+ * absolute http(s) URL is dropped (which restores the official endpoint) rather
+ * than being passed down and failing at request time.
+ */
+export function sanitizeBaseUrlOverrides(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim();
+    if (trimmed === "") continue; // an empty override means "restore default"
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") continue;
+      if (parsed.username || parsed.password) continue;
+      out[key] = parsed.href.replace(/\/+$/, "");
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
+
+/**
+ * Normalize the structurally-sensitive settings keys, but ONLY the ones the
+ * patch actually carries. A write must stay shape-preserving — persisting
+ * `{ defaultProvider }` must not grow three empty structural keys — while the
+ * loader-resolved config is normalized wholesale on install and on read.
+ */
+function normalizePatch<T extends Partial<WebToolsSettings>>(patch: T): T {
+  const out: Partial<WebToolsSettings> = { ...patch };
+  if (patch.providerBaseUrls !== undefined) out.providerBaseUrls = sanitizeBaseUrlOverrides(patch.providerBaseUrls);
+  if (patch.customProviders !== undefined) out.customProviders = loadCustomProviders(patch.customProviders);
+  if (patch.outboundAuthorizations !== undefined) {
+    out.outboundAuthorizations = Array.isArray(patch.outboundAuthorizations) ? patch.outboundAuthorizations : [];
+  }
+  return out as T;
+}
+
+/**
+ * Normalize the three structurally-sensitive settings keys. Applied when the
+ * loader-resolved config is first read and again on every read, so a
+ * hand-edited profile or a malformed card save can never put a raw override,
+ * a broken custom source, or a non-array authorization list into the runtime.
+ */
+function normalizeSettings<T extends Partial<WebToolsSettings>>(values: T): T {
+  const out: Partial<WebToolsSettings> = { ...values };
+  out.providerBaseUrls = sanitizeBaseUrlOverrides(out.providerBaseUrls);
+  out.customProviders = loadCustomProviders(out.customProviders);
+  out.outboundAuthorizations = Array.isArray(out.outboundAuthorizations) ? out.outboundAuthorizations : [];
+  return out as T;
 }
 
 function isVolatileRef(value: unknown): value is VolatileRef {
@@ -189,7 +266,7 @@ export function installConfig(ctx: WebToolsContext, resolved?: unknown): ConfigH
     service = sctx.settings;
     if (typeof service?.register === "function") {
       try {
-        scope = service.register(ns, Config, { base: snapshotSettings(resolved) });
+        scope = service.register(ns, Config, { base: normalizeSettings(snapshotSettings(resolved)) });
       } catch {
         /* register rejected the schema — fall through to the declarative path */
       }
@@ -213,15 +290,29 @@ export function installConfig(ctx: WebToolsContext, resolved?: unknown): ConfigH
   });
 
   return {
-    read: () => ({
-      ...snapshotSettings(scope?.get ? scope.get() : resolved),
-      ...overlay,
-    }),
+    read: () =>
+      normalizeSettings({
+        ...snapshotSettings(scope?.get ? scope.get() : resolved),
+        ...overlay,
+      }),
     write: async (patch) => {
       if (!scope && !service) throw new Error("dsh-web-tools settings namespace is not mounted");
-      Object.assign(overlay, patch);
-      if (scope) await scope.update(patch as object);
-      else await service!.update(ns, patch as object);
+      // Persist FIRST, then publish.
+      //
+      // The reverse order (publish then await) made a read() that raced the
+      // write return a value that had never been persisted, and on DSH 0.1.7 a
+      // settings write costs ~2.5s (profile patch + Loader reconciliation). A
+      // failure or a slow write therefore left the runtime running on a phantom
+      // value — catastrophic for a multi-step custom-source create, where a
+      // later step would act on a source that was never saved.
+      //
+      // Applying to the overlay only after a successful write keeps `read()`
+      // consistent with what is on disk: either the whole patch is live, or
+      // none of it is.
+      const normalized = normalizePatch(patch);
+      if (scope) await scope.update(normalized as object);
+      else await service!.update(ns, normalized as object);
+      Object.assign(overlay, normalized);
     },
     onMounted: (cb) => {
       if (mounted) cb();
