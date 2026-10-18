@@ -72,7 +72,7 @@ const deps = {
 };
 
 const { server, getHandler } = mockServer();
-registerRoutes({ webServer: server, webRuntime: { trustedHosts: [] } }, deps);
+registerRoutes({ webServer: server }, deps);
 const handler = getHandler();
 
 async function call(method, payload, opts = {}) {
@@ -173,7 +173,7 @@ test("platform/status automatically verifies persisted sessions before respondin
     },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, platformDeps);
+  registerRoutes({ webServer: s }, platformDeps);
 
   const { req, res } = fakeReqRes("POST", `${API_PREFIX}/platform/status`, {});
   await g()(req, res);
@@ -205,7 +205,7 @@ test("config/save persists BEFORE returning saved:true", async () => {
     },
   };
   const { server: s2, getHandler: g2 } = mockServer();
-  registerRoutes({ webServer: s2, webRuntime: { trustedHosts: [] } }, saveDeps);
+  registerRoutes({ webServer: s2 }, saveDeps);
   const h2 = g2();
   const { req, res } = fakeReqRes("POST", `${API_PREFIX}/config/save`, { defaultProvider: "exa" });
   await h2(req, res);
@@ -221,7 +221,7 @@ test("config/save accepts a proxyUrl, trimmed; empty string clears it", async ()
     writeConfig: async (patch) => { written = patch; },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+  registerRoutes({ webServer: s }, saveDeps);
   const h = g();
 
   const set = fakeReqRes("POST", `${API_PREFIX}/config/save`, { proxyUrl: "  http://127.0.0.1:7890/  " });
@@ -242,7 +242,7 @@ test("config/save accepts a per-provider direct-proxy map", async () => {
     writeConfig: async (patch) => { written = patch; },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+  registerRoutes({ webServer: s }, saveDeps);
   const h = g();
   const { req, res } = fakeReqRes("POST", `${API_PREFIX}/config/save`, { providerProxyDirect: { brave: false, tavily: true } });
   await h(req, res);
@@ -259,7 +259,7 @@ test("config/save rejects invalid proxy URLs and persists nothing", async () => 
       writeConfig: async () => { written = true; },
     };
     const { server: s, getHandler: g } = mockServer();
-    registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, saveDeps);
+    registerRoutes({ webServer: s }, saveDeps);
     const h = g();
     const { req, res } = fakeReqRes("POST", `${API_PREFIX}/config/save`, { proxyUrl: bad });
     await h(req, res);
@@ -296,7 +296,7 @@ test("credentials/add-key appends one key and persists the joined string", async
     writeCredential: async (ref, value) => { written = value; },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, addDeps);
+  registerRoutes({ webServer: s }, addDeps);
   const h = g();
   const { req, res } = fakeReqRes("POST", `${API_PREFIX}/credentials/add-key`, { provider: "tavily", value: "tvly-dev-key-three-9999" });
   await h(req, res);
@@ -319,7 +319,7 @@ test("credentials/remove-key removes by opaque id, not by value", async () => {
     writeCredential: async (ref, value) => { written = value; },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, rmDeps);
+  registerRoutes({ webServer: s }, rmDeps);
   const h = g();
 
   // discover the id for the second key via config/get (ids are per-key stable)
@@ -354,7 +354,7 @@ test("removing the LAST key writes an empty value (routes hand empty to the writ
     writeCredential: async (ref, value) => { written = { ref, value }; store = value; },
   };
   const { server: s, getHandler: g } = mockServer();
-  registerRoutes({ webServer: s, webRuntime: { trustedHosts: [] } }, rmDeps);
+  registerRoutes({ webServer: s }, rmDeps);
   const h = g();
 
   // Discover both key ids via config/get.

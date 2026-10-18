@@ -152,7 +152,6 @@ test("apply(ctx, config): passes loader config into search runtime without falli
 
   const mockCtx: any = {
     webServer: { register: () => () => {}, registerUpgrade: () => () => {} },
-    webRuntime: { trustedHosts: ["127.0.0.1"] },
     settings: mockSettings,
     credentials: {
       resolve: async (ref: string) => (ref === "WEB_TOOLS_TAVILY" ? { value: "tvly-test-key" } : { value: "" }),

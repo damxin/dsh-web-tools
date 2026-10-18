@@ -20,9 +20,6 @@ test("Runtime Wiring: apply(ctx) registers routed providers into ctx.web", async
         return () => {};
       },
     },
-    webRuntime: {
-      trustedHosts: ["127.0.0.1", "localhost"],
-    },
     settings: {
       register: () => ({
         get: () => ({ enabled: true, defaultProvider: "exa", fallbackOrder: [] }),

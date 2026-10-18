@@ -32,11 +32,26 @@ export async function call<T>(method: string, payload?: unknown): Promise<T> {
   } catch (e) {
     throw new WebToolsApiError("network", `web-tools API unreachable: ${e instanceof Error ? e.message : String(e)}`);
   }
+  // Read text, not res.json(): a failure here is usually NOT a malformed body
+  // but a response this card never got from the Host route at all — the SPA
+  // fallback seat answers every unmatched request and gives a non-GET/HEAD one
+  // a BODYLESS 405 (packages/host/frontend-static). Name that case, instead of
+  // leaving "non-JSON (HTTP 405)" as the whole diagnosis.
+  const text = await res.text();
   let json: unknown;
   try {
-    json = await res.json();
+    json = JSON.parse(text);
   } catch {
-    throw new WebToolsApiError("bad-response", `web-tools API returned non-JSON (HTTP ${res.status})`);
+    const contentType = res.headers.get("content-type") ?? "none";
+    const unregistered = res.status === 405 && text.trim() === "";
+    throw new WebToolsApiError(
+      "bad-response",
+      `web-tools API returned non-JSON (HTTP ${res.status}, content-type ${contentType}, ${text.length} bytes)` +
+        (unregistered
+          ? " — no /web-tools/api route is registered: the Host plugin did not activate (an inject name DSH does not register keeps the plugin dormant)"
+          : "") +
+        (text.trim() ? `: ${text.trim().slice(0, 120)}` : ""),
+    );
   }
   const body = json as { ok?: boolean; value?: T; error?: { code?: string; message?: string } };
   if (!body.ok || body.value === undefined) {
