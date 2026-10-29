@@ -35,6 +35,7 @@ import {
   type TestSearchView,
   type ProviderView,
   type SearchRoutingPolicy,
+  type UsageStatsView,
   type VersionCheckView,
   type PlatformStatusResponse,
 } from "./api.ts";
@@ -439,6 +440,66 @@ function TestSearchBlock(props: { t: TFunc; config: ConfigView; onError: (msg: s
   );
 }
 
+/** Usage counters block: per-provider calls today and over the last 7 days. */
+function UsageStatsBlock(props: {
+  t: TFunc;
+  config: ConfigView;
+  stats: UsageStatsView | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  const { t, config, stats, loading, onRefresh } = props;
+  const per = stats?.perProvider ?? {};
+  const label = (name: string) => config.providers.find((p) => p.name === name)?.label ?? name;
+  // Every configured tool gets a row (zeros included); counters for sources no
+  // longer in the catalog (e.g. a deleted custom source, aging out) trail after.
+  const names = [
+    ...config.providers.map((p) => p.name),
+    ...Object.keys(per).filter((name) => !config.providers.some((p) => p.name === name)),
+  ];
+  const anyCalls = names.some((name) => (per[name]?.last7 ?? 0) > 0);
+  const cell = (n: number) => (
+    <span style={{ color: n > 0 ? text.primary : text.tertiary, fontVariantNumeric: "tabular-nums" }}>{n}</span>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 10, borderTop: `1px solid ${surface.border}` }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: text.primary }}>{t("usageStatsTitle")}</span>
+        <span style={{ marginLeft: "auto" }}>
+          <Button size="sm" variant="ghost" onClick={onRefresh} disabled={loading}>
+            {t("usageRefresh")}
+          </Button>
+        </span>
+      </div>
+      {stats !== null && !anyCalls ? (
+        <span style={{ fontSize: 12, color: text.tertiary }}>{t("usageEmpty")}</span>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+          <div style={{ display: "flex", color: text.tertiary }}>
+            <span style={{ flex: 1, minWidth: 0 }} />
+            <span style={{ width: 72, textAlign: "right" }}>{t("usageTodayColumn")}</span>
+            <span style={{ width: 84, textAlign: "right" }}>{t("usageLast7Column")}</span>
+          </div>
+          {names.map((name) => {
+            const row = per[name];
+            return (
+              <div key={name} style={{ display: "flex", alignItems: "center" }}>
+                <span style={{ flex: 1, minWidth: 0, color: text.primary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {label(name)}
+                </span>
+                <span style={{ width: 72, textAlign: "right" }}>{cell(row?.today ?? 0)}</span>
+                <span style={{ width: 84, textAlign: "right" }}>{cell(row?.last7 ?? 0)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <span style={{ fontSize: 12, color: text.tertiary }}>{t("usageStatsHint")}</span>
+    </div>
+  );
+}
+
 /** The page. */
 export function WebToolsSection(props: SectionProps) {
   const { t: baseT, ui } = props;
@@ -471,6 +532,11 @@ export function WebToolsSection(props: SectionProps) {
   const [providerTestResults, setProviderTestResults] = useState<Record<string, TestProviderView>>({});
   const [busyProviders, setBusyProviders] = useState<Record<string, boolean>>({});
   const [timeoutDraftSec, setTimeoutDraftSec] = useState<string>("");
+  // Usage counters (today / last 7 days), fetched lazily when the diagnostics
+  // section is first expanded — the card must not pay for a view most users
+  // never open.
+  const [usageStats, setUsageStats] = useState<UsageStatsView | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
   const dragProvider = useRef<string | null>(null);
   const [overProvider, setOverProvider] = useState<string | null>(null);
   const readSeq = useRef(createReadSequencer());
@@ -550,6 +616,25 @@ export function WebToolsSection(props: SectionProps) {
       // display-only; never disturb the page
     }
   };
+
+  const loadUsage = async () => {
+    setUsageLoading(true);
+    try {
+      const stats = await api.usageDescribe();
+      if (!mounted.current) return;
+      setUsageStats(stats);
+    } catch {
+      // display-only; never disturb the page
+    } finally {
+      if (mounted.current) setUsageLoading(false);
+    }
+  };
+
+  // Fetch (or refresh) the usage counters each time the diagnostics section is
+  // expanded, so re-opening the card shows counts that include recent calls.
+  useEffect(() => {
+    if (diagnosticsOpen) void loadUsage();
+  }, [diagnosticsOpen]);
 
   useEffect(() => {
     // Re-arm on every mount: the cleanup below clears this flag, and React
@@ -1201,6 +1286,9 @@ export function WebToolsSection(props: SectionProps) {
               <span style={{ fontSize: 13, fontWeight: 500, color: text.primary }}>{t("testSearchTitle")}</span>
               <TestSearchBlock t={t} config={config} onError={(msg) => setError(msg)} />
             </div>
+
+            {/* Per-provider call counters (today / last 7 days) */}
+            <UsageStatsBlock t={t} config={config} stats={usageStats} loading={usageLoading} onRefresh={() => void loadUsage()} />
 
             {/* Bundle identity. The web shell serves client bundles as
                 immutable, cache-busted by a revision derived from the file's

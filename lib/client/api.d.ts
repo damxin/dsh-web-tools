@@ -15,10 +15,10 @@ export declare class WebToolsApiError extends Error {
 }
 /** Call one API method; throws WebToolsApiError on failure. */
 export declare function call<T>(method: string, payload?: unknown): Promise<T>;
-import type { ConfigView, CredentialsView, QuotaDescribeView, SearchMode, SearchModeView, TestProviderView, TestSearchView, SearchRoutingPolicy, VersionCheckView } from "../shared/api-types.ts";
+import type { ConfigView, CredentialsView, QuotaDescribeView, SearchMode, SearchModeView, TestProviderView, TestSearchView, SearchRoutingPolicy, UsageStatsView, VersionCheckView } from "../shared/api-types.ts";
 import type { BrowserPlatform, PlatformStatusResponse } from "../shared/platform-types.ts";
 import type { CustomProviderDraft, CustomSourceTestView } from "../shared/custom-provider-types.ts";
-export type { ConfigView, CredentialsView, ProviderView, QuotaDescribeView, QuotaView, SearchMode, SearchModeView, TestProviderView, TestSearchView, SearchRoutingPolicy, VersionCheckView, } from "../shared/api-types.ts";
+export type { ConfigView, CredentialsView, ProviderView, QuotaDescribeView, QuotaView, SearchMode, SearchModeView, TestProviderView, TestSearchView, SearchRoutingPolicy, UsageStatsView, VersionCheckView, } from "../shared/api-types.ts";
 export type { BrowserPlatform, PlatformStatusResponse, } from "../shared/platform-types.ts";
 export type { CustomProviderConfig, CustomProviderDraft, CustomProtocol, AuthMode, CustomSourceTestView, CustomSourceErrorCode, } from "../shared/custom-provider-types.ts";
 export declare const api: {
@@ -43,6 +43,7 @@ export declare const api: {
     testSearch: (query: string) => Promise<TestSearchView>;
     quotaDescribe: (force?: boolean) => Promise<QuotaDescribeView>;
     versionCheck: () => Promise<VersionCheckView>;
+    usageDescribe: () => Promise<UsageStatsView>;
     searchModeGet: (sessionId: string) => Promise<SearchModeView>;
     searchModeSet: (sessionId: string, mode: SearchMode) => Promise<SearchModeView>;
     providerOptionsSet: (provider: string, options: Record<string, unknown>) => Promise<{

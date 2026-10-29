@@ -52,6 +52,10 @@ export const DEFAULT_SETTINGS = {
   // response header captured during a real search. Persisted here so a
   // restart does not forget the last known balance (keyed by API key).
   braveQuotaCache: {} as Record<string, QuotaSnapshot>,
+  // Per-day search call counters ("{ [YYYY-MM-DD]: { [provider]: count } }"),
+  // pruned to the last 7 days. Persisted so the card's today/last-7-days
+  // usage view survives a restart (see usage-persist.ts).
+  usageCounters: {} as Record<string, Record<string, number>>,
   // Search routing policy: how the runtime picks the starting provider per
   // search query. "ordered" = always from the first available; "round-robin"
   // and "random" rotate the start offset (see routing-policy.ts).
@@ -91,6 +95,8 @@ export interface WebToolsSettings {
   providerOptions: StoredProviderOptions;
   /** Brave per-key quota snapshots captured from search response headers. */
   braveQuotaCache: Record<string, QuotaSnapshot>;
+  /** Per-day search call counters, pruned to the last 7 days (usage-persist.ts). */
+  usageCounters: Record<string, Record<string, number>>;
   /** Search routing policy (see shared api-types). */
   searchRoutingPolicy: ToolSearchRoutingPolicy;
   /**
@@ -127,6 +133,7 @@ export const Config = z.object({
   platformEnabled: z.dict(z.boolean()).default(DEFAULT_SETTINGS.platformEnabled).volatile(),
   providerOptions: z.dict(z.any()).default(DEFAULT_SETTINGS.providerOptions).volatile(),
   braveQuotaCache: z.dict(z.any()).default(DEFAULT_SETTINGS.braveQuotaCache).volatile(),
+  usageCounters: z.dict(z.any()).default(DEFAULT_SETTINGS.usageCounters).volatile(),
   searchRoutingPolicy: z.union([z.const("ordered"), z.const("round-robin"), z.const("random")]).default(DEFAULT_SETTINGS.searchRoutingPolicy).volatile(),
   proxyUrl: z.string().default(DEFAULT_SETTINGS.proxyUrl).volatile(),
   providerProxyDirect: z.dict(z.boolean()).default(DEFAULT_SETTINGS.providerProxyDirect).volatile(),

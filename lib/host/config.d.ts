@@ -41,6 +41,7 @@ export declare const DEFAULT_SETTINGS: {
     platformEnabled: Record<string, boolean>;
     providerOptions: StoredProviderOptions;
     braveQuotaCache: Record<string, QuotaSnapshot>;
+    usageCounters: Record<string, Record<string, number>>;
     searchRoutingPolicy: ToolSearchRoutingPolicy;
     proxyUrl: string;
     providerProxyDirect: Record<string, boolean>;
@@ -61,6 +62,8 @@ export interface WebToolsSettings {
     providerOptions: StoredProviderOptions;
     /** Brave per-key quota snapshots captured from search response headers. */
     braveQuotaCache: Record<string, QuotaSnapshot>;
+    /** Per-day search call counters, pruned to the last 7 days (usage-persist.ts). */
+    usageCounters: Record<string, Record<string, number>>;
     /** Search routing policy (see shared api-types). */
     searchRoutingPolicy: ToolSearchRoutingPolicy;
     /**
@@ -96,6 +99,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     platformEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
     providerOptions: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
     braveQuotaCache: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
+    usageCounters: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
     searchRoutingPolicy: z<"ordered" | "round-robin" | "random", "ordered" | "round-robin" | "random", "volatile-defined">;
     proxyUrl: z<string, string, "volatile-defined">;
     providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
@@ -112,6 +116,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     platformEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
     providerOptions: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
     braveQuotaCache: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
+    usageCounters: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
     searchRoutingPolicy: z<"ordered" | "round-robin" | "random", "ordered" | "round-robin" | "random", "volatile-defined">;
     proxyUrl: z<string, string, "volatile-defined">;
     providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;

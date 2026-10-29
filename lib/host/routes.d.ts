@@ -14,7 +14,7 @@ import type { WebToolsContext, WebToolsHttpRequest } from "./context-types.ts";
 import { type PoolEntry } from "./pool.ts";
 import type { QuotaSnapshot } from "./quota.ts";
 import type { ProxySource } from "./fetch-proxy.ts";
-import type { SearchMode, SearchModeView, VersionCheckView } from "../shared/api-types.ts";
+import type { SearchMode, SearchModeView, UsageStatsView, VersionCheckView } from "../shared/api-types.ts";
 import { type CustomCredentialRefs, type CustomSourceTestView } from "../shared/custom-provider-types.ts";
 import { type LookupAllFn } from "./provider-transport.ts";
 import type { SpecializedSourceRegistry } from "./sources/registry.ts";
@@ -52,6 +52,8 @@ export interface RouteDeps {
     }>;
     /** Cached, failure-tolerant GitHub release check. */
     checkVersion?: () => Promise<VersionCheckView>;
+    /** Per-day search call counters (today / last 7 days) for the usage view. */
+    usage?: () => UsageStatsView;
     /** Search-Mode runtime access (see search-mode-runtime.ts). */
     searchMode?: {
         view(sessionId: string): SearchModeView;

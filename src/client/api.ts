@@ -73,6 +73,7 @@ import type {
   TestProviderView,
   TestSearchView,
   SearchRoutingPolicy,
+  UsageStatsView,
   VersionCheckView,
 } from "../shared/api-types.ts";
 import type {
@@ -95,6 +96,7 @@ export type {
   TestProviderView,
   TestSearchView,
   SearchRoutingPolicy,
+  UsageStatsView,
   VersionCheckView,
 } from "../shared/api-types.ts";
 export type {
@@ -121,6 +123,7 @@ export const api = {
   testSearch: (query: string) => call<TestSearchView>("test/search", { query }),
   quotaDescribe: (force = false) => call<QuotaDescribeView>("quota/describe", { force }),
   versionCheck: () => call<VersionCheckView>("version/check"),
+  usageDescribe: () => call<UsageStatsView>("usage/describe"),
   searchModeGet: (sessionId: string) => call<SearchModeView>("search-mode/get", { sessionId }),
   searchModeSet: (sessionId: string, mode: SearchMode) => call<SearchModeView>("search-mode/set", { sessionId, mode }),
   providerOptionsSet: (provider: string, options: Record<string, unknown>) =>

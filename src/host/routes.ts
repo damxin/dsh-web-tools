@@ -17,7 +17,7 @@ import { credRefOf, PROVIDER_LIST } from "./providers/index.ts";
 import type { QuotaSnapshot } from "./quota.ts";
 import type { ProxySource } from "./fetch-proxy.ts";
 import { normalizeProxyUrl } from "./fetch-proxy.ts";
-import type { ConfigView, ProviderView, SearchMode, SearchModeView, SearchRoutingPolicy, VersionCheckView } from "../shared/api-types.ts";
+import type { ConfigView, ProviderView, SearchMode, SearchModeView, SearchRoutingPolicy, UsageStatsView, VersionCheckView } from "../shared/api-types.ts";
 import { buildProviderOptionView, sanitizeProviderOptions } from "./provider-options.ts";
 import { createHash } from "node:crypto";
 import { endpointViewOf, isForeignOverride, PROVIDER_ENDPOINTS } from "./endpoints.ts";
@@ -151,6 +151,8 @@ export interface RouteDeps {
   proxyStatus?: () => Promise<{ configured: boolean; degraded: boolean; url?: string; source?: ProxySource }>;
   /** Cached, failure-tolerant GitHub release check. */
   checkVersion?: () => Promise<VersionCheckView>;
+  /** Per-day search call counters (today / last 7 days) for the usage view. */
+  usage?: () => UsageStatsView;
   /** Search-Mode runtime access (see search-mode-runtime.ts). */
   searchMode?: {
     view(sessionId: string): SearchModeView;
@@ -580,6 +582,11 @@ async function handleQuotaDescribe(deps: RouteDeps, payload: unknown) {
 async function handleVersionCheck(deps: RouteDeps): Promise<VersionCheckView> {
   if (!deps.checkVersion) throw new Error("version check unavailable");
   return deps.checkVersion();
+}
+
+async function handleUsageDescribe(deps: RouteDeps): Promise<UsageStatsView> {
+  if (!deps.usage) throw new Error("usage counters unavailable");
+  return deps.usage();
 }
 
 async function handleSearchModeGet(deps: RouteDeps, payload: unknown) {
@@ -1200,6 +1207,7 @@ const ENDPOINTS: Record<string, (deps: RouteDeps, payload: unknown) => Promise<u
   "test/search": (deps, payload) => handleTestSearch(deps, payload),
   "quota/describe": (deps, payload) => handleQuotaDescribe(deps, payload),
   "version/check": (deps) => handleVersionCheck(deps),
+  "usage/describe": (deps) => handleUsageDescribe(deps),
   "search-mode/get": (deps, payload) => handleSearchModeGet(deps, payload),
   "search-mode/set": (deps, payload) => handleSearchModeSet(deps, payload),
   "provider-options/set": (deps, payload) => handleProviderOptionsSet(deps, payload),

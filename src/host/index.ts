@@ -21,6 +21,7 @@ import { buildPool, selectIndex, markUsed, markUnhealthy, resetHealth } from "./
 import { credRefOf, getProvider, PROVIDER_LIST, quotaOf } from "./providers/index.ts";
 import { seedBraveQuota, setBraveQuotaPersist } from "./providers/brave.ts";
 import { createQuotaPersistScheduler } from "./quota-persist.ts";
+import { createUsagePersist } from "./usage-persist.ts";
 import type { ProviderError } from "./providers/types.ts";
 import { isKeylessSelfHosted } from "./providers/types.ts";
 import type { QuotaSnapshot } from "./quota.ts";
@@ -223,6 +224,22 @@ export function apply(ctx: WebToolsContext, config?: unknown) {
     void configHandle.write({ braveQuotaCache: cache }).catch(() => {});
   });
 
+  /**
+   * Coalesced writer for per-day search call counters (the card's today /
+   * last-7-days usage view). Every real provider attempt counts, failures
+   * included — a failed call still hit the provider and its rate limits.
+   */
+  const usagePersist = createUsagePersist((buckets) => {
+    void configHandle.write({ usageCounters: buckets }).catch(() => {});
+  });
+  configHandle.onMounted(() => {
+    usagePersist.seed(readConfig().usageCounters);
+  });
+  ctx.effect(
+    () => () => usagePersist.dispose(),
+    "dsh-web-tools: usage counters persistence",
+  );
+
   // ---- ctx.web search + fetch providers ----------------------------------
   const resolveRuntimeConfig = () => {
     const cfg = readConfig();
@@ -312,7 +329,10 @@ export function apply(ctx: WebToolsContext, config?: unknown) {
   const sourceRegistry = new SpecializedSourceRegistry();
 
   const generalSearchProvider = createSearchProvider(resolveRuntimeConfig, resolveKeys, {
-    record: (e) => stats.record({ ...e, at: Date.now() }),
+    record: (e) => {
+      stats.record({ ...e, at: Date.now() });
+      usagePersist.record(e.provider);
+    },
   }, undefined, poolStore, healthStore, resolveSnapshot);
 
   const generalFetchProvider = createFetchProvider(resolveRuntimeConfig, resolveKeys, undefined, poolStore, healthStore, undefined, resolveSnapshot);
@@ -841,6 +861,7 @@ export function apply(ctx: WebToolsContext, config?: unknown) {
         nativeRuntime,
         sourceRegistry,
         checkVersion,
+        usage: () => usagePersist.view(),
         poolEntries: (providerName) => poolStore.poolOf(providerName),
         proxyStatus,
         searchMode,

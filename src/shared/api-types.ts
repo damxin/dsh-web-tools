@@ -184,3 +184,11 @@ export interface VersionCheckView {
   releaseName?: string;
   publishedAt?: string;
 }
+
+/** Per-provider search call counters for the card's usage view. */
+export interface UsageStatsView {
+  /** Host-local date key (YYYY-MM-DD) the "today" column is keyed to. */
+  date: string;
+  /** One row per provider that has at least one recorded call. */
+  perProvider: Record<string, { today: number; last7: number }>;
+}
