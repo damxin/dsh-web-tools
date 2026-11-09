@@ -146,6 +146,7 @@ export const zhDict: Record<string, string> = {
   "capability.parallel": "深度搜索 · 内容提取",
   "capability.jina": "网页搜索 · 动态页面读取",
   "capability.zhipu": "联网搜索 · 多引擎",
+  "capability.keenable": "网页搜索 · 结果摘要",
   "capability.searxng": "自托管搜索 · 隐私可控",
   connectionSettings: "连接设置",
   connectionDefault: "默认",
@@ -387,6 +388,7 @@ export const zhDict: Record<string, string> = {
   dashTavily: "Tavily 控制台",
   dashFirecrawl: "Firecrawl 控制台",
   dashJina: "Jina AI 控制台",
+  dashKeenable: "Keenable 控制台",
   dashYou: "You.com 控制台",
   dashZhipu: "智谱开放平台",
   // --- Credential / test connection copy ---
@@ -623,6 +625,7 @@ export const enDict: Record<string, string> = {
   "capability.parallel": "Web Search · Extract",
   "capability.jina": "Web Search · Page Read",
   "capability.zhipu": "Web Search · Multi-Engine",
+  "capability.keenable": "Web Search · Summaries",
   "capability.searxng": "Self-hosted Web Search",
   connectionSettings: "Connection settings",
   connectionDefault: "Default",
@@ -866,6 +869,7 @@ export const enDict: Record<string, string> = {
   dashTavily: "Tavily dashboard",
   dashFirecrawl: "Firecrawl dashboard",
   dashJina: "Jina AI dashboard",
+  dashKeenable: "Keenable dashboard",
   dashYou: "You.com dashboard",
   dashZhipu: "Zhipu Open Platform",
   // --- Credential / test connection copy ---

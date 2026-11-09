@@ -1,13 +1,10 @@
 /**
- * dsh-web-tools — Host configuration: plugin Config schema + read/write handle.
+ * dsh-web-tools — Host configuration: settings namespace + schema.
  *
- * dsh 0.1.7 replaced the old `settings.register()` namespace API with a
- * declarative model: the plugin exports a schemastery `Config` schema, the
- * loader validates it, fills the schema-declared defaults and hands the
- * resolved config to `apply(ctx, config)`. Fields declared `.volatile()` update
- * live (no plugin remount) and are the ONLY paths `settings.update` accepts —
- * which is how the settings card persists edits. API keys are NOT here — they
- * live in the credentials domain (`WEB_TOOLS_*` refs).
+ * The config (non-secret knobs) lives in a `dsh-web-tools` settings namespace
+ * registered through the settings service, so it persists with the deployment's
+ * settings document. API keys are NOT here — they live in the credentials
+ * domain (`WEB_TOOLS_*` refs).
  * @module
  */
 import z from "@deepseek-ai/schemastery";
@@ -19,7 +16,7 @@ import type { CustomProviderConfig } from "../shared/custom-provider-types.ts";
 import type { OutboundAuthorization } from "./provider-transport.ts";
 /** Persistent search routing policy id (shared with the client card). */
 export type ToolSearchRoutingPolicy = SearchRoutingPolicy;
-/** Settings namespace for this plugin (= the cordis.patch.yml insert row id). */
+/** Settings namespace for this plugin. */
 export declare const SETTINGS_NS = "dsh-web-tools";
 /** Default provider when nothing is configured. Changed from tavily to exa
  *  based on P5 evaluation: Exa achieves 72.2% Top-1, 97.2% Top-3 evidence,
@@ -27,9 +24,10 @@ export declare const SETTINGS_NS = "dsh-web-tools";
  *  This only affects new installs — existing users keep their saved provider. */
 export declare const DEFAULT_PROVIDER = "exa";
 /**
- * Explicit defaults — the single source of truth mirrored onto the schema
- * fields below (`.default(...)`); the loader folds them into the resolved
- * config, and read() falls back to them when no resolved config is available.
+ * Explicit defaults. The resolved settings type is `WebToolsSettings` (below);
+ * `Config` is the schemastery schema annotated the official way
+ * (`z<WebToolsSettings>`) so the emitted d.ts references only `schemastery`,
+ * never the dsh-private cosmokit copy.
  */
 export declare const DEFAULT_SETTINGS: {
     enabled: boolean;
@@ -41,8 +39,8 @@ export declare const DEFAULT_SETTINGS: {
     platformEnabled: Record<string, boolean>;
     providerOptions: StoredProviderOptions;
     braveQuotaCache: Record<string, QuotaSnapshot>;
-    usageCounters: Record<string, Record<string, number>>;
     searchRoutingPolicy: ToolSearchRoutingPolicy;
+    usageCounters: Record<string, Record<string, number>>;
     proxyUrl: string;
     providerProxyDirect: Record<string, boolean>;
     uiLanguage: "auto" | "zh" | "en";
@@ -50,7 +48,7 @@ export declare const DEFAULT_SETTINGS: {
     /** Operator-granted outbound destinations for internal gateways / private IPs. */
     outboundAuthorizations: OutboundAuthorization[];
 };
-/** Plain resolved-settings shape the Host code consumes (volatile refs unwrapped). */
+/** Resolved settings shape (explicit interface — portable in emitted d.ts). */
 export interface WebToolsSettings {
     enabled: boolean;
     defaultProvider: string;
@@ -62,10 +60,10 @@ export interface WebToolsSettings {
     providerOptions: StoredProviderOptions;
     /** Brave per-key quota snapshots captured from search response headers. */
     braveQuotaCache: Record<string, QuotaSnapshot>;
-    /** Per-day search call counters, pruned to the last 7 days (usage-persist.ts). */
-    usageCounters: Record<string, Record<string, number>>;
     /** Search routing policy (see shared api-types). */
     searchRoutingPolicy: ToolSearchRoutingPolicy;
+    /** Per-day search call counters, pruned to the last 7 days (usage-persist.ts). */
+    usageCounters: Record<string, Record<string, number>>;
     /**
      * Outbound proxy URL for provider HTTP calls ("" = unset → env/system
      * detection). Only http:// / https:// URLs are valid.
@@ -78,52 +76,10 @@ export interface WebToolsSettings {
     /** Operator-defined custom search sources (Issue #9). */
     customProviders: CustomProviderConfig[];
     /** Operator-granted outbound destinations for internal gateways / private IPs. */
-    outboundAuthorizations: OutboundAuthorization[];
+    outboundAuthorizations?: OutboundAuthorization[];
 }
-/**
- * The plugin Config schema (cordis convention: the loader picks up the
- * `Config` export, validates the row's config and fills these defaults).
- * EVERY field is declared volatile: rc.1 `settings.update` refuses
- * non-volatile paths, and the settings card must be able to save every knob
- * here live without remounting the plugin. At runtime the resolved values of
- * volatile fields are live refs — Host code reads them through
- * `installConfig().read()`, which unwraps them per call.
- */
-export declare const Config: z<Schemastery.ObjectS<NoInfer<{
-    enabled: z<boolean, boolean, "volatile-defined">;
-    defaultProvider: z<string, string, "volatile-defined">;
-    providerAttemptTimeoutMs: z<number, number, "volatile-defined">;
-    fallbackOrder: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-    providerBaseUrls: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<string, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<string, string>>, "volatile-defined">;
-    providerEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    platformEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    providerOptions: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    braveQuotaCache: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    usageCounters: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    searchRoutingPolicy: z<"ordered" | "round-robin" | "random", "ordered" | "round-robin" | "random", "volatile-defined">;
-    proxyUrl: z<string, string, "volatile-defined">;
-    providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    uiLanguage: z<"auto" | "zh" | "en", "auto" | "zh" | "en", "volatile-defined">;
-    customProviders: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
-    outboundAuthorizations: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
-}>>, Schemastery.ObjectT<NoInfer<{
-    enabled: z<boolean, boolean, "volatile-defined">;
-    defaultProvider: z<string, string, "volatile-defined">;
-    providerAttemptTimeoutMs: z<number, number, "volatile-defined">;
-    fallbackOrder: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-    providerBaseUrls: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<string, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<string, string>>, "volatile-defined">;
-    providerEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    platformEnabled: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    providerOptions: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    braveQuotaCache: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    usageCounters: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<any, string>>, "volatile-defined">;
-    searchRoutingPolicy: z<"ordered" | "round-robin" | "random", "ordered" | "round-robin" | "random", "volatile-defined">;
-    proxyUrl: z<string, string, "volatile-defined">;
-    providerProxyDirect: z<NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, NoInfer<import("@deepseek-ai/cosmokit").Dict<boolean, string>>, "volatile-defined">;
-    uiLanguage: z<"auto" | "zh" | "en", "auto" | "zh" | "en", "volatile-defined">;
-    customProviders: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
-    outboundAuthorizations: z<NoInfer<any[]>, NoInfer<any[]>, "volatile-defined">;
-}>>, "plain">;
+/** The schema object for settings registration (official z<T> annotation). */
+export declare const Config: z<WebToolsSettings>;
 /** A settings-scope handle: current value + write path. */
 export interface ConfigHandle {
     /** Resolve the current effective section (re-read each call → live edits apply). */
@@ -131,9 +87,10 @@ export interface ConfigHandle {
     /** Write a partial patch into the namespace; resolves when persisted. */
     write: (patch: Partial<WebToolsSettings>) => Promise<void>;
     /**
-     * Called once the settings service is reachable (ctx.inject callback). The
-     * resolved config passed to apply() already carries persisted values, but
-     * boot work that must not race service startup still waits for this.
+     * Called once the settings namespace is registered (ctx.inject callback).
+     * Use it for anything that must read persisted settings at boot — the
+     * synchronous apply() body runs BEFORE the inject callback, so reading
+     * config there would only see the defaults.
      */
     onMounted: (cb: () => void) => void;
 }
@@ -146,11 +103,9 @@ export interface ConfigHandle {
  */
 export declare function sanitizeBaseUrlOverrides(value: unknown): Record<string, string>;
 /**
- * Build the config handle. `resolved` is the loader-resolved plugin config
- * handed to `apply(ctx, config)` — volatile fields arrive as live refs, so
- * read() reflects settings edits immediately. Writes go through the settings
- * service (`SettingsForms.update`), which persists into the profile patch and
- * reconciles the live refs; it only accepts volatile paths, which every
- * schema field above declares.
+ * Register the settings namespace; returns a handle for reads (live) and
+ * Host-side writes. The browser card writes through the fenced routes, never
+ * through settings/mutate (that proxy's whitelist excludes third-party
+ * namespaces).
  */
-export declare function installConfig(ctx: WebToolsContext, resolved?: unknown): ConfigHandle;
+export declare function installConfig(ctx: WebToolsContext, initialConfig?: unknown): ConfigHandle;

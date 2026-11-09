@@ -31,7 +31,7 @@
 
 当联网能力只依赖一个 Web Provider 时，额度耗尽、限流或服务异常都可能直接中断检索；而简单接入多个搜索 API，往往又只能使用它们共同支持的基础能力，没有真正发挥不同搜索源各自擅长的搜索模式、分类、时效、域名策略和正文提取能力。
 
-dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、SearXNG，以及小红书、Twitter / X 接入 DSH 标准 `web_search` / `web_fetch`。
+dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、Keenable、SearXNG，以及小红书、Twitter / X 接入 DSH 标准 `web_search` / `web_fetch`。
 
 在统一 DSH 工具接口的同时，dsh-web-tools 通过 SearchHints 归一化查询意图，再针对不同 Provider 分别编译为其支持的原生参数，尽可能使用各家的分类、时效、域名、地区、深度搜索与正文提取能力；同时通过多 API Key、Provider Fallback 和平台专用浏览器会话，提高整个联网链路的可用性。
 
@@ -39,7 +39,7 @@ dsh-web-tools 将 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina�
 
 **核心亮点**：
 
-- **9 大 Web Provider 原生能力深度适配**：保持统一 `web_search` / `web_fetch` 接口，但不把不同搜索源压成最低公共能力。针对 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、SearXNG 分别适配搜索类型、时效、域名策略、地区语言、深度检索与正文提取能力。
+- **10 大 Web Provider 原生能力深度适配**：保持统一 `web_search` / `web_fetch` 接口，但不把不同搜索源压成最低公共能力。针对 Exa、Tavily、Firecrawl、Parallel、Brave、You.com、Jina、智谱 AI、Keenable、SearXNG 分别适配搜索类型、时效、域名策略、地区语言、深度检索与正文提取能力。
 - **SearchHints → Provider-specific 参数编译**：将 Query 中的技术 / 论文 / 新闻、时效、域名、地区与语言等搜索意图归一化，再按不同 Provider 的能力映射为各自原生参数；整个过程由确定性代码完成，不增加额外 LLM 调用。
 - **小红书与 Twitter / X 平台来源**：两个平台均通过独立的本地浏览器 Profile 提供已登录站内搜索、详情抓取，以及页面实际返回的评论或回复。
 - **多搜索源调度与自动容灾**：支持多 API Key 分配、鉴权失败切换、429 冷却、Ordered / Round-Robin / Random 路由，以及可配置 Provider Fallback。
@@ -95,8 +95,9 @@ dsh-web-tools 通过 SearchHints 表达查询意图，再针对不同 Provider �
 * **Brave Search**：LLM Context 预提取端点，支持 `pd/pw/pm/py` 时效、国家与搜索语言。
 * **You.com**：原生 **`boost_domains`** 软加权支持，时效与地区国家过滤。
 * **Jina**：搜索关键词降噪与 ReaderLM-v2 高精度 Markdown 正文解析。
-* **智谱 AI**：GLM 联网搜索（`/api/paas/v4/web_search`），原生支持搜索引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、时效过滤（`oneDay`–`oneYear`）、域名白名单与 `content_size` 摘要长度；仅搜索（web_fetch 走通用抓取器）。
 * **SearXNG**：自建元搜索支持 `categories` (it/science/news) 与 `time_range`。
+* **Keenable**：Web 搜索，支持 `site` 域名限定与 `published_after` / `published_before` 日期过滤。
+* **智谱 AI**：GLM 联网搜索（`/api/paas/v4/web_search`），原生支持搜索引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、时效过滤（`oneDay`–`oneYear`）、域名白名单与 `content_size` 摘要长度；仅搜索（web_fetch 走通用抓取器）。
 * **原生与通用正文提取 (`web_fetch`)**：配置 Tavily、Exa、Firecrawl、Parallel、You.com、Jina 时自动优先调用其原生云端提取接口；未配置或失败时，以及使用 SearXNG / Brave 时，自动平滑回退至**插件内置通用 HTTP 抓取器**（基于 Defuddle 纯本地 Markdown 解析与 SSRF / DNS 安全防护），无需额外配置或购买第三方 Fetch Key。
 
 ---
@@ -133,10 +134,10 @@ Agent 使用 `小红书:` 或 `X:` 作为平台路由前缀。前缀只负责选
 
 ## 自定义搜索源与地址覆盖 (Issue #9)
 
-除了内置的 8 大搜索源与社交媒体平台外，插件完整支持**自定义搜索源 (Custom Search Providers)** 与**内置源地址自定义**：
+除了内置的 10 大搜索源与社交媒体平台外，插件完整支持**自定义搜索源 (Custom Search Providers)** 与**内置源地址自定义**：
 
 * **内置源地址覆盖与恢复**：
-  * 全部 8 大内置搜索源（Exa、Tavily、Firecrawl、Brave、You、Parallel、Jina、SearXNG）均支持自定义服务地址（例如自建 API 网关、代理镜像）。
+  * 全部 10 大内置搜索源（Exa、Tavily、Firecrawl、Brave、You、Parallel、Jina、智谱 AI、Keenable、SearXNG）均支持自定义服务地址（例如自建 API 网关、代理镜像）。
   * 精确保留路径前缀（如 `/v1`、`/v2`），并在跨域名变更时进行凭证保护提示，支持随时一键恢复官方默认地址。
 * **三条并列接入路径（单弹窗渐进式配置）**：
   * **兼容已有搜索接口**：遵循标准 Tavily JSON POST 规范，免配任何字段映射，适合快速接入各开源代理镜像或兼容网关。
@@ -201,7 +202,7 @@ Agent 使用 `小红书:` 或 `X:` 作为平台路由前缀。前缀只负责选
   </table>
 </div>
 
-* **可配置出站代理与内网直连 (Proxy & Intranet Bypass)**：完整支持 Windows 系统代理、`HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 环境变量，并可在设置卡中直接配置插件级代理地址（设置 → 网页搜索 → 高级设置，优先级高于环境变量与系统代理）。本地回环地址始终绕过代理；内置 **DNS 预检与私网智能旁路**，公网请求正常走代理通道，而解析至私网地址（RFC 1918）的自建搜索源（如局域网自建 SearXNG 或私有网关）自动采用底层直连拨号，彻底消弭开启系统代理时内网服务不可达的拓扑冲突。还可以给单个 Provider 标记「不走代理」，其请求始终直连，即使全局代理已配置。
+* **智能代理分流与内网直连 (Intranet Proxy Bypass)**：完整支持 Windows 系统代理及 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` 环境变量。内置 **DNS 预检与私网智能旁路**，公网请求正常走代理通道，而本地回环及解析至私网地址（RFC 1918）的自建搜索源（如局域网自建 SearXNG 或私有网关）自动采用底层直连拨号，彻底消弭开启系统代理时内网服务不可达的拓扑冲突。
 
 ---
 
@@ -236,8 +237,9 @@ dsh plugin --profile web remove dsh-web-tools
 | [Brave Search](https://brave.com/search/api/) | 支持 | — | 默认优先 LLM Context 预提取模式，支持时效/区域语言过滤，不支持时自动回退 Classic 搜索 | 响应头自动捕获 |
 | [You.com](https://you.com) | 支持 | 支持，`/v1/contents` | 搜索高亮片段提取、原生 **`boost_domains`** 软加权、时效与国家过滤、Markdown 正文接口 | 官方 API |
 | [Jina](https://jina.ai) | 支持 | 支持，Reader | 搜索关键词降噪、ReaderLM-v2 高精度 Markdown 转换、Token 预算控制 | 尽力解析 |
-| [智谱 AI](https://open.bigmodel.cn) | 支持 | — | GLM 联网搜索，原生引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、`oneDay`–`oneYear` 时效、域名白名单、`content_size` 摘要长度 | 控制台自查 |
 | [SearXNG](https://docs.searxng.org) | 支持 | — | 开源自托管元搜索引擎，映射 `categories` (it/science/news) 与受支持的 `time_range`，适配器无需 API Key | 由自建实例决定 |
+| [Keenable](https://keenable.ai) | 支持 | — | Web 搜索 API（`X-API-Key`），将首个限定域名映射为 `site`，时效日期映射为 `published_after` / `published_before`，返回 `published_at`；`web_fetch` 使用内置通用抓取器 | 仅控制台 |
+| [智谱 AI](https://open.bigmodel.cn) | 支持 | — | GLM 联网搜索，原生引擎选择（`search_std` / `search_pro` / 搜狗 / 夸克）、意图识别、`oneDay`–`oneYear` 时效、域名白名单、`content_size` 摘要长度 | 控制台自查 |
 
 ### 快速选型指南
 
@@ -251,8 +253,9 @@ dsh plugin --profile web remove dsh-web-tools
 | **可调深度搜索与正文提取** | **Tavily** / **Parallel** | 提供 Provider 原生深度档位与内容提取接口 |
 | **正文转 Markdown** | **Firecrawl** / **Jina** | 支持正文提取、主内容过滤或 Reader 转换 |
 | **时效、地区与域名偏好** | **You.com** | 支持 freshness、地区语言和 `boost_domains` 参数 |
-| **中文友好的多引擎搜索** | **智谱 AI** | GLM 联网搜索：`search_std` / `search_pro` / 搜狗 / 夸克，支持时效与域名白名单 |
 | **自托管元搜索** | **SearXNG** | 使用用户自己的 SearXNG 地址，适配器不要求 API Key |
+| **Agent 检索 / 精炼摘要提取** | **Keenable** | 支持原生 `site` 域名限定与 `published_after` / `published_before` 发布日期过滤，高质量网页摘要抽取 |
+| **中文友好的多引擎搜索** | **智谱 AI** | GLM 联网搜索：`search_std` / `search_pro` / 搜狗 / 夸克，支持时效与域名白名单 |
 
 ---
 
